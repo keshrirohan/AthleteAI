@@ -22,7 +22,6 @@ export default function Navbar() {
     image: "/defaultImg.png",
   });
 
-  
   return (
     <header className="w-full border-b border-border bg-background backdrop-blur-md fixed top-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
@@ -41,17 +40,23 @@ export default function Navbar() {
           <Link href="/tests" className="hover:text-primary transition-colors">
             Tests
           </Link>
-          <Link href="/results" className="hover:text-primary transition-colors">
-            Results
+          <Link
+            href="/features"
+            className="hover:text-primary transition-colors"
+          >
+            Features
           </Link>
-          <Link href="/leaderboard" className="hover:text-primary transition-colors">
+          <Link
+            href="/leaderboard"
+            className="hover:text-primary transition-colors"
+          >
             Leaderboard
           </Link>
-          <Link href="/achievements" className="hover:text-primary transition-colors">
-            Achievements
-          </Link>
-          <Link href="/help" className="hover:text-primary transition-colors">
-            Help
+          <Link
+            href="/workout"
+            className="hover:text-primary transition-colors"
+          >
+            WorkOut
           </Link>
           <Link href="/about" className="hover:text-primary transition-colors">
             About
@@ -84,7 +89,7 @@ export default function Navbar() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-            {/* <Button asChild className="rounded-xl hidden md:inline-flex">
+          {/* <Button asChild className="rounded-xl hidden md:inline-flex">
               <Link href="/auth/login">Get Started</Link>
             </Button> */}
 
@@ -105,30 +110,55 @@ export default function Navbar() {
       {isOpen && (
         <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-sm transition-all duration-300">
           <div className="flex flex-col items-center gap-4 py-6">
-            <Link href="/home" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
+            <Link
+              href="/home"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
               Home
             </Link>
-            <Link href="/tests" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
+            <Link
+              href="/tests"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
               Tests
             </Link>
-            <Link href="/results" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
-              Results
+            <Link
+              href="/features"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
+              Features
             </Link>
-            <Link href="/leaderboard" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
+            <Link
+              href="/leaderboard"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
               Leaderboard
             </Link>
-            <Link href="/achievements" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
-              Achievements
+            <Link
+              href="/achievements"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
+              Workout
             </Link>
-            <Link href="/help" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
-              Help
-            </Link>
-            <Link href="/about" className="hover:text-primary text-lg" onClick={() => setIsOpen(false)}>
+            <Link
+              href="/about"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
               About
             </Link>
-              <Button asChild className="rounded-xl w-[150px]" onClick={() => setIsOpen(false)}>
-                <Link href="/auth/login">Get Started</Link>
-              </Button>
+            <Button
+              asChild
+              className="rounded-xl w-[150px]"
+              onClick={() => setIsOpen(false)}
+            >
+              <Link href="/auth/login">Get Started</Link>
+            </Button>
           </div>
         </div>
       )}
