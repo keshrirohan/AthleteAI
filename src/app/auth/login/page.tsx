@@ -1,108 +1,90 @@
+// app/auth/login/page.tsx
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import { toast } from "sonner";
-import Navbar from "@/components/common/NavBar";
-import { getUserFromToken} from "@/lib/auth";
-import { redirect } from "next/navigation";
+import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 
-export default async function LoginPage() {
-  if (await getUserFromToken()) {
-    redirect("/");
+export default function LoginPage() {
+  const router = useRouter();
+  const { login, authProcessing, isAuthenticated } = useAuth();
+  const [form, setForm] = useState({ emailOrUsername: "", password: "" });
+  const [error, setError] = useState<string | null>(null);
+
+  // If user is already authenticated, navigate away (client-side)
+  if (isAuthenticated) {
+    // small guard to avoid routing during render — prefer a micro-task
+    if (typeof window !== "undefined") {
+      router.replace("/profile"); // or route to "/" or profile with id
+    }
+    return <div className="p-6">Redirecting…</div>;
   }
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
 
-    try {
-      const res = await fetch("/api/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-
-      if (res.ok) {
-        toast.success("Login Successful", {
-          description: "You have been logged in successfully.",
-        });
-      } else {
-        toast.error("Login Failed", {
-          description: "Invalid credentials. Please try again.",
-        });
-      }
-    } catch (error) {
-      toast.error("Error", {
-        description: "Something went wrong. Try again later.",
-      });
+    if (!form.emailOrUsername || !form.password) {
+      setError("Please enter username/email and password.");
+      return;
     }
+
+    const res = await login({
+      emailOrUsername: form.emailOrUsername.trim(),
+      password: form.password,
+    });
+
+    if (!res.success) {
+      setError(res.error || "Login failed");
+      return;
+    }
+
+    // successful login — refreshUser is already called inside login; redirect
+    router.replace("/profile"); // or router.replace(`/profile/${userId}`) if you want specific page
   };
 
   return (
-    <>
-    <Navbar />
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4">
-      <Card className="w-full max-w-lg shadow-2xl rounded-2xl border border-slate-800 bg-slate-900 p-6">
-        <CardHeader>
-          <CardTitle className="text-center text-3xl font-bold text-white">
-            Login
-          </CardTitle>
-          <p className="text-center text-slate-400 text-sm mt-1">
-            Please Login in to continue
-          </p>
-        </CardHeader>
+    <div className="min-h-[100vh] flex items-center justify-center px-4">
+      <div className="max-w-md w-full border rounded p-6 shadow-sm">
+        <h2 className="text-2xl font-semibold mb-4">Sign in</h2>
 
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div>
-              <label className="block text-sm text-slate-300 mb-1">Email</label>
-              <Input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-slate-800 text-white border-slate-700 h-12 text-base"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm text-slate-300 mb-1">Password</label>
-              <Input
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-slate-800 text-white border-slate-700 h-12 text-base"
-                required
-              />
-            </div>
-            <Button
+        {error && <div className="mb-3 text-sm text-red-600">{error}</div>}
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <input
+            value={form.emailOrUsername}
+            onChange={(e) =>
+              setForm({ ...form, emailOrUsername: e.target.value })
+            }
+            placeholder="Email or username"
+            className="w-full p-2 border rounded"
+            autoComplete="username"
+          />
+
+          <input
+            value={form.password}
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
+            placeholder="Password"
+            type="password"
+            className="w-full p-2 border rounded"
+            autoComplete="current-password"
+          />
+
+          <div className="flex items-center justify-between">
+            <button
               type="submit"
-              className="w-full h-12 text-lg bg-blue-600 hover:bg-blue-700 text-white rounded-xl cursor-pointer"
+              disabled={authProcessing}
+              className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-60"
             >
-              Sign In
-            </Button>
-          </form>
-        </CardContent>
+              {authProcessing ? "Signing in…" : "Sign in"}
+            </button>
 
-        <CardFooter className="flex justify-center">
-          <p className="text-slate-400 text-sm">
-            Don’t have an account?{" "}
-            <Link
-              href="/auth/signup"
-              className="text-blue-500 font-semibold hover:underline"
-            >
-              Sign up
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
+            <a className="text-sm text-blue-600" href="/auth/signup">
+              Create account
+            </a>
+          </div>
+        </form>
+      </div>
     </div>
-    </>
   );
 }

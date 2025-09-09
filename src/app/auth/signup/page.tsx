@@ -1,191 +1,379 @@
 "use client";
-
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import Navbar from "@/components/common/NavBar";
-import { redirectIfAuth } from "@/lib/auth";
-import { redirect } from "next/navigation";
 
-export default async function SignupPage() {
-  if (await redirectIfAuth()) {
-      redirect("/");
-    }
-  const [loading, setLoading] = useState(false);
+export default function Signup() {
   const router = useRouter();
 
-  // Controlled states
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [usernameError, setUsernameError] = useState("");
-  const [checkingUsername, setCheckingUsername] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    password: "",
+    username: "",
+    age: "",
+    gender: "",
+    dob: "",
+    country: "", // ✅ Added
+    state: "",
+    district: "", // ✅ Added
+    documentType: "Aadhaar",
+    documentNumber: "",
+  });
 
-  // Handle username input
-  const handleUsernameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.toLowerCase();
-    value = value.replace(/[^a-z0-9]/g, ""); 
-    setUsername(value);
+  const [countries, setCountries] = useState([]);
+  const [states, setStates] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-    if (/[^a-z0-9]/.test(e.target.value)) {
-      setUsernameError("Only letters and numbers allowed. No spaces.");
-    } else {
-      setUsernameError("");
+  // Fetch countries
+  useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const res = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/positions"
+        );
+        const json = await res.json();
+        const list = Array.isArray(json?.data) ? json.data : [];
+        setCountries(list);
+      } catch (err) {
+        console.error("fetchCountries error:", err);
+        setCountries([]);
+      }
+    };
+    fetchCountries();
+  }, []);
+
+  // Fetch states when country changes
+  useEffect(() => {
+    if (!formData.country) {
+      setStates([]);
+      setCities([]);
+      return;
     }
+
+    const fetchStates = async () => {
+      try {
+        const res = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/states",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ country: formData.country }),
+          }
+        );
+        const json = await res.json();
+        const list = Array.isArray(json?.data?.states) ? json.data.states : [];
+        setStates(list);
+        setFormData((prev) => ({ ...prev, state: "", district: "" }));
+        setCities([]);
+      } catch (err) {
+        console.error("fetchStates error:", err);
+        setStates([]);
+        setCities([]);
+      }
+    };
+
+    fetchStates();
+  }, [formData.country]);
+
+  // Fetch cities when state changes
+  useEffect(() => {
+    if (!formData.country || !formData.state) {
+      setCities([]);
+      return;
+    }
+
+    const fetchCities = async () => {
+      try {
+        const res = await fetch(
+          "https://countriesnow.space/api/v0.1/countries/state/cities",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              country: formData.country,
+              state: formData.state,
+            }),
+          }
+        );
+        const json = await res.json();
+        const list = Array.isArray(json?.data) ? json.data : [];
+        setCities(list);
+        setFormData((prev) => ({ ...prev, district: "" }));
+      } catch (err) {
+        console.error("fetchCities error:", err);
+        setCities([]);
+      }
+    };
+
+    fetchCities();
+  }, [formData.state, formData.country]);
+
+  // Handle input changes
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  // Check username availability from backend
-  useEffect(() => {
-    if (!username) return;
+  // Validate form before submit
+  const validateForm = () => {
+    const required = [
+      "firstName",
+      "lastName",
+      "email",
+      "password",
+      "username",
+      "age",
+      "gender",
+      "dob",
+      "country",
+      "state",
+      "district",
+      "documentType",
+      "documentNumber",
+    ];
 
-    const timeout = setTimeout(async () => {
-      setCheckingUsername(true);
-      try {
-        const res = await fetch(`/api/check-username?username=${username}`);
-        const data = await res.json();
-        if (data.exists) setUsernameError("Username is already taken");
-        else setUsernameError(""); // username available
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setCheckingUsername(false);
+    console.log("Validating formData:", formData);
+
+    for (const key of required) {
+      const val = String(formData[key] ?? "").trim();
+      if (!val) {
+        console.error(`Error: ${key} is missing`);
+        alert(`${key} is required`);
+        return { ok: false, message: `${key} is required` };
       }
-    }, 500); // debounce 500ms
+    }
 
-    return () => clearTimeout(timeout);
-  }, [username]);
+    console.log("Validation Passed ✅");
+    return { ok: true };
+  };
 
-  // Handle form submit
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  // Submit form
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (usernameError) return;
+
+    const check = validateForm();
+    if (!check.ok) return;
+
+    console.log("Sending to backend:", formData);
 
     setLoading(true);
-    const payload = { name, username, email, password };
-
     try {
       const res = await fetch("/api/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formData),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Signup failed");
 
-      toast.success("Account created ✅", { description: "Redirecting to home..." });
-      router.push(`/${username}`);
-    } catch (err: any) {
-      toast.error("Signup failed ❌", { description: err.message });
+      const data = await res.json();
+      console.log("Server Response:", data);
+
+      if (res.status === 201) {
+        alert("Signup successful! Please login.");
+        router.push(`/dashboard/${data.user.username}`);
+      } else {
+        alert(data.message || "Signup failed");
+      }
+    } catch (err) {
+      console.error("Network Error:", err);
+      alert("Something went wrong, please try again later.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <>
-      <Navbar />
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-slate-950 to-slate-900 px-4">
-        <Card className="w-full max-w-md shadow-2xl border border-slate-800 bg-slate-900/90 backdrop-blur-md">
-          <CardHeader>
-            <CardTitle className="text-center text-3xl font-extrabold text-white">
-              Create Account
-            </CardTitle>
-            <p className="text-center text-slate-400 text-sm mt-1">
-              Please signup to continue
-            </p>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Name */}
-              <div>
-                <label className="block text-sm text-slate-300 mb-1">Name</label>
-                <Input
-                  type="text"
-                  placeholder="Full Name"
-                  required
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-slate-800 text-white border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+    
+      <div className="max-w-2xl mx-auto mt-8 bg-white shadow-lg rounded-lg p-6">
+        <h1 className="text-2xl font-bold mb-6 text-center">Signup</h1>
 
-              {/* Username */}
-              <div>
-                <label className="block text-sm text-slate-300 mb-1">Username</label>
-                <Input
-                  type="text"
-                  placeholder="Enter your username"
-                  required
-                  value={username}
-                  onChange={handleUsernameChange}
-                  className="bg-slate-800 text-white border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-                {checkingUsername && <p className="text-gray-400 text-sm mt-1">Checking username...</p>}
-                {usernameError && <p className="text-red-500 text-sm mt-1">{usernameError}</p>}
-                {!usernameError && username && !checkingUsername && (
-                  <p className="text-green-500 text-sm mt-1">Username available ✅</p>
-                )}
-              </div>
+        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
+          {/* First & Last Name */}
+          <input
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleChange}
+            type="text"
+            placeholder="First Name"
+            className="border p-2 rounded"
+            required
+          />
+          <input
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
+            type="text"
+            placeholder="Last Name"
+            className="border p-2 rounded"
+            required
+          />
 
-              {/* Email */}
-              <div>
-                <label className="block text-sm text-slate-300 mb-1">Email</label>
-                <Input
-                  type="email"
-                  placeholder="Email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="bg-slate-800 text-white border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+          {/* Email */}
+          <input
+            name="email"
+            value={formData.email}
+            onChange={handleChange}
+            type="email"
+            placeholder="Email"
+            className="border p-2 rounded col-span-2"
+            required
+          />
 
-              {/* Password */}
-              <div>
-                <label className="block text-sm text-slate-300 mb-1">Password</label>
-                <Input
-                  type="password"
-                  placeholder="Password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="bg-slate-800 text-white border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
+          {/* Password */}
+          <input
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            type="password"
+            placeholder="Password"
+            className="border p-2 rounded col-span-2"
+            required
+          />
 
-              {/* Submit */}
-              <Button
-                type="submit"
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg py-2"
-                disabled={loading || !!usernameError || checkingUsername}
-              >
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" /> Creating...
-                  </span>
-                ) : (
-                  "Sign Up"
-                )}
-              </Button>
-            </form>
+          {/* Username */}
+          <input
+            name="username"
+            value={formData.username}
+            onChange={handleChange}
+            type="text"
+            placeholder="Username"
+            className="border p-2 rounded col-span-2"
+            required
+          />
 
-            <p className="text-sm text-center text-gray-400 mt-6">
-              Already have an account?{" "}
-              <a
-                href="/auth/login"
-                className="text-blue-500 hover:text-blue-400 hover:underline font-medium transition"
-              >
-                Log in
-              </a>
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </>
+          {/* Age & Gender */}
+          <input
+            name="age"
+            value={formData.age}
+            onChange={handleChange}
+            type="number"
+            placeholder="Age"
+            className="border p-2 rounded"
+            required
+          />
+          <select
+            name="gender"
+            value={formData.gender}
+            onChange={handleChange}
+            className="border p-2 rounded"
+            required
+          >
+            <option value="">Select Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+
+          {/* Date of Birth */}
+          <input
+            name="dob"
+            value={formData.dob}
+            onChange={handleChange}
+            type="date"
+            className="border p-2 rounded col-span-2"
+            required
+          />
+
+          {/* Country */}
+          <select
+            name="country"
+            value={formData.country}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                country: e.target.value,
+                state: "",
+                district: "",
+              }))
+            }
+            className="border p-2 rounded col-span-2"
+            required
+          >
+            <option value="">Select Country</option>
+            {countries.map((c, idx) => (
+              <option key={idx} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+
+          {/* State */}
+          {states.length > 0 && (
+            <select
+              name="state"
+              value={formData.state}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  state: e.target.value,
+                  district: "",
+                }))
+              }
+              className="border p-2 rounded col-span-2"
+              required
+            >
+              <option value="">Select State</option>
+              {states.map((s, idx) => (
+                <option key={idx} value={s.name}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* District */}
+          {cities.length > 0 && (
+            <select
+              name="district"
+              value={formData.district}
+              onChange={handleChange}
+              className="border p-2 rounded col-span-2"
+              required
+            >
+              <option value="">Select District</option>
+              {cities.map((district, idx) => (
+                <option key={idx} value={district}>
+                  {district}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Document Type */}
+          <select
+            name="documentType"
+            value={formData.documentType}
+            onChange={handleChange}
+            className="border p-2 rounded col-span-2"
+            required
+          >
+            <option value="Aadhaar">Aadhaar</option>
+            <option value="Passport">Passport</option>
+            <option value="Driving License">Driving License</option>
+          </select>
+
+          {/* Document Number */}
+          <input
+            name="documentNumber"
+            value={formData.documentNumber}
+            onChange={handleChange}
+            type="text"
+            placeholder="Document Number"
+            className="border p-2 rounded col-span-2"
+            required
+          />
+
+          {/* Submit Button */}
+          <button
+            type="submit"
+            className="col-span-2 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition"
+            disabled={loading}
+          >
+            {loading ? "Signing up..." : "Signup"}
+          </button>
+        </form>
+      </div>{" "}
+    
   );
 }

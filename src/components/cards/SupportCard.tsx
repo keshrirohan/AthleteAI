@@ -14,7 +14,13 @@ interface SupportCardProps {
   delay?: number;
 }
 
-export default function SupportCard({ icon: Icon, title, description, buttonText, delay }: SupportCardProps) {
+export default function SupportCard({
+  icon: Icon,
+  title,
+  description,
+  buttonText,
+  delay,
+}: SupportCardProps) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 40 }}
@@ -30,7 +36,9 @@ export default function SupportCard({ icon: Icon, title, description, buttonText
         </CardHeader>
         <CardContent className="flex flex-col justify-between flex-grow">
           <p className="text-muted-foreground mb-6 text-sm">{description}</p>
-          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">{buttonText}</Button>
+          <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white">
+            {buttonText}
+          </Button>
         </CardContent>
       </Card>
     </motion.div>
