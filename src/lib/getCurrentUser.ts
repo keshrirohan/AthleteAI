@@ -1,13 +1,18 @@
-// src/lib/getCurrentUser.ts
-import { verifyToken } from "@/lib/auth"; // verifyToken returns payload or null
+import { verifyToken, TOKEN_NAME } from "@/lib/auth";
 
 export function getCurrentUserFromCookie(req: Request) {
-  const cookie = req.headers.get("cookie") || "";
-  if (!cookie) return null;
-  const tokenPair = cookie.split(";").map((c) => c.trim()).find((c) => c.startsWith("token="));
+  const cookieHeader = req.headers.get("cookie") || "";
+  if (!cookieHeader) return null;
+
+  const tokenPair = cookieHeader
+    .split(";")
+    .map((c) => c.trim())
+    .find((c) => c.startsWith(`${TOKEN_NAME}=`));
   if (!tokenPair) return null;
-  const token = tokenPair.split("=")[1];
+
+  const token = tokenPair.split("=").slice(1).join("=");
   if (!token) return null;
+
   const payload = verifyToken(token);
-  return payload; // { sub, iat, exp, ... } or null
+  return payload;
 }

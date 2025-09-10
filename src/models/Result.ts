@@ -1,8 +1,8 @@
-// src/models/Result.ts
-import mongoose, { Schema, Document } from "mongoose";
+// models/Result.ts
+import mongoose, { Schema, Document, model } from "mongoose";
 
 export interface IResult extends Document {
-  athleteId?: string;
+  athleteId: mongoose.Types.ObjectId | string;
   exercise: string;
   score: number;
   feedback: string[];
@@ -21,31 +21,30 @@ export interface IResult extends Document {
   paceMinPerKm?: number;
   videoUrl?: string;
   createdAt: Date;
-  updatedAt: Date;
 }
 
-const ResultSchema = new Schema<IResult>(
-  {
-    athleteId: { type: String },
-    exercise: { type: String, required: true },
-    score: { type: Number, required: true },
-    feedback: [String],
-    corrections: [String],
-    reps: Number,
-    jumpHeightCm: Number,
-    jumpDisplacementNorm: Number,
-    turns: Number,
-    splitTimes: [Number],
-    cadence: Number,
-    trunkAngleAvg: Number,
-    trunkAngleMin: Number,
-    trunkAngleMax: Number,
-    distanceKm: Number,
-    durationSec: Number,
-    paceMinPerKm: Number,
-    videoUrl: String,
-  },
-  { timestamps: true }
-);
+const ResultSchema = new Schema<IResult>({
+  athleteId: { type: Schema.Types.ObjectId, ref: "User", required: true },
+  exercise: { type: String, required: true },
+  score: { type: Number, required: true },
+  feedback: { type: [String], default: [] },
+  corrections: { type: [String], default: [] },
+  reps: Number,
+  jumpHeightCm: Number,
+  jumpDisplacementNorm: Number,
+  turns: Number,
+  splitTimes: [Number],
+  cadence: Number,
+  trunkAngleAvg: Number,
+  trunkAngleMin: Number,
+  trunkAngleMax: Number,
+  distanceKm: Number,
+  durationSec: Number,
+  paceMinPerKm: Number,
+  videoUrl: String,
+  createdAt: { type: Date, default: Date.now },
+});
 
-export default mongoose.models.Result || mongoose.model<IResult>("Result", ResultSchema);
+// Prevent model overwrite issues in dev/hot reload
+export default (mongoose.models?.Result as mongoose.Model<IResult>) ||
+  model<IResult>("Result", ResultSchema);

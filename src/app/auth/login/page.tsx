@@ -1,46 +1,49 @@
 // app/auth/login/page.tsx
 "use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, authProcessing, isAuthenticated } = useAuth();
+  const searchParams = useSearchParams();
+  const nextUrl = searchParams?.get("next") ?? null;
+
+  // useAuth provides: login(), authProcessing, isAuthenticated, user (optional)
+  const { login, authProcessing, isAuthenticated, user: authUser } = useAuth();
+
   const [form, setForm] = useState({ emailOrUsername: "", password: "" });
   const [error, setError] = useState<string | null>(null);
 
-  // If user is already authenticated, navigate away (client-side)
-  if (isAuthenticated) {
-    // small guard to avoid routing during render — prefer a micro-task
-    if (typeof window !== "undefined") {
-      router.replace("/profile"); // or route to "/" or profile with id
-    }
-    return <div className="p-6">Redirecting…</div>;
-  }
+  // Redirect if already authenticated — done inside useEffect to avoid routing during render
+  useEffect(() => {
+    if (!isAuthenticated) return;
 
+    // Prefer the explicit next param if present, otherwise go to profile (with id if available)
+
+    // Always redirect to /annexure-a after login
+    router.replace("/annexure-a");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, authUser, nextUrl]);
+
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    if (!form.emailOrUsername || !form.password) {
-      setError("Please enter username/email and password.");
-      return;
+    try {
+      // login returns { success, user?, error? } or throws
+      const result = (await login({
+        emailOrUsername: form.emailOrUsername,
+        password: form.password,
+      })) as { success: boolean; user?: { _id: string }; error?: string };
+      // Determine destination: next param -> profile/:id (if result.user._id) -> /profile
+      router.replace("/annexure-a");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      setError(err?.message || "Login failed. Try again.");
     }
-
-    const res = await login({
-      emailOrUsername: form.emailOrUsername.trim(),
-      password: form.password,
-    });
-
-    if (!res.success) {
-      setError(res.error || "Login failed");
-      return;
-    }
-
-    // successful login — refreshUser is already called inside login; redirect
-    router.replace("/profile"); // or router.replace(`/profile/${userId}`) if you want specific page
   };
 
   return (
@@ -79,9 +82,14 @@ export default function LoginPage() {
               {authProcessing ? "Signing in…" : "Sign in"}
             </button>
 
-            <a className="text-sm text-blue-600" href="/auth/signup">
+            <Link
+              className="text-sm text-blue-600"
+              href={`/auth/signup${
+                nextUrl ? `?next=${encodeURIComponent(nextUrl)}` : ""
+              }`}
+            >
               Create account
-            </a>
+            </Link>
           </div>
         </form>
       </div>

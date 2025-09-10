@@ -1,4 +1,3 @@
-// app/api/auth/login/route.ts
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/dbConnect";
 import User from "@/models/User";
@@ -30,7 +29,8 @@ export async function POST(req: Request) {
     }
 
     const token = signToken({ sub: user._id.toString(), email: user.email });
-    return createAuthResponse({ success: true, user: { _id: user._id, name: user.name, email: user.email } }, token);
+    const safeUser = { _id: user._id, name: user.name || user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim(), email: user.email, username: user.username };
+    return createAuthResponse({ success: true, user: safeUser }, token);
   } catch (err: any) {
     console.error("LOGIN ERROR", err);
     return NextResponse.json({ success: false, error: err?.message || "Server error" }, { status: 500 });

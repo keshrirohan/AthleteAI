@@ -1,6 +1,16 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-const ProfileSchema = new Schema(
+export interface IProfile extends Document {
+  userId: mongoose.Types.ObjectId;
+  name?: string;
+  age?: number;
+  gender?: string;
+  sport?: string;
+  state?: string;
+  profileImage?: string;
+}
+
+const ProfileSchema = new Schema<IProfile>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, unique: true },
     name: { type: String },
@@ -13,4 +23,4 @@ const ProfileSchema = new Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Profile || mongoose.model("Profile", ProfileSchema);
+export default mongoose.models.Profile || mongoose.model<IProfile>("Profile", ProfileSchema);

@@ -1,4 +1,3 @@
-// app/api/results/[athleteId]/route.ts
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/dbConnect";
 import Result from "@/models/Result";

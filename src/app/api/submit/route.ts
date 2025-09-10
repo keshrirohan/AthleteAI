@@ -1,40 +1,52 @@
-// app/api/submit/route.ts
+// src/app/api/submit/route.ts
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/dbConnect";
 import ResultModel from "@/models/Result";
+import UserModel from "@/models/User";
+
+connectDB(); // ensure connection (safe to call multiple times thanks to caching helper)
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json(); // expects { metadata, videoUrl }
-    const metadata = body.metadata || {};
-    const videoUrl = body.videoUrl || "";
+    const body = await req.json();
+    const { metadata, videoUrl, athleteId } = body ?? {};
 
-    await connectDB();
+    // server-side validation
+    if (!athleteId) return NextResponse.json({ error: "athleteId is required" }, { status: 400 });
+    if (!metadata || typeof metadata !== "object")
+      return NextResponse.json({ error: "metadata is required" }, { status: 400 });
 
-    const doc = await ResultModel.create({
-      athleteId: metadata.athleteId || null,
+    // optional: confirm athlete exists
+    const athlete = await UserModel.findById(athleteId).lean();
+    if (!athlete) return NextResponse.json({ error: "athlete not found" }, { status: 404 });
+
+    // construct result doc
+    const doc = {
+      athleteId,
       exercise: metadata.exercise || "unknown",
-      score: metadata.score ?? 0,
-      feedback: metadata.feedback || [],
-      corrections: metadata.corrections || [],
-      reps: metadata.reps,
-      jumpHeightCm: metadata.jumpHeightCm,
-      jumpDisplacementNorm: metadata.jumpDisplacementNorm,
-      turns: metadata.turns,
-      splitTimes: metadata.splitTimes,
-      cadence: metadata.cadence,
-      trunkAngleAvg: metadata.trunkAngleAvg,
-      trunkAngleMin: metadata.trunkAngleMin,
-      trunkAngleMax: metadata.trunkAngleMax,
-      distanceKm: metadata.distanceKm,
-      durationSec: metadata.durationSec,
-      paceMinPerKm: metadata.paceMinPerKm,
-      videoUrl: videoUrl || undefined,
-    });
+      score: Number(metadata.score ?? 0),
+      feedback: Array.isArray(metadata.feedback) ? metadata.feedback : [],
+      corrections: Array.isArray(metadata.corrections) ? metadata.corrections : [],
+      reps: metadata.reps ?? undefined,
+      jumpHeightCm: metadata.jumpHeightCm ?? undefined,
+      jumpDisplacementNorm: metadata.jumpDisplacementNorm ?? undefined,
+      turns: metadata.turns ?? undefined,
+      splitTimes: Array.isArray(metadata.splitTimes) ? metadata.splitTimes : undefined,
+      cadence: metadata.cadence ?? undefined,
+      trunkAngleAvg: metadata.trunkAngleAvg ?? undefined,
+      trunkAngleMin: metadata.trunkAngleMin ?? undefined,
+      trunkAngleMax: metadata.trunkAngleMax ?? undefined,
+      distanceKm: metadata.distanceKm ?? undefined,
+      durationSec: metadata.durationSec ?? undefined,
+      paceMinPerKm: metadata.paceMinPerKm ?? undefined,
+      videoUrl: videoUrl || "",
+      createdAt: new Date(),
+    };
 
-    return NextResponse.json({ success: true, result: doc }, { status: 200 });
+    const saved = await ResultModel.create(doc);
+    return NextResponse.json({ success: true, result: saved }, { status: 201 });
   } catch (err: any) {
-    console.error("submit error:", err);
-    return NextResponse.json({ success: false, error: err?.message || "Server error" }, { status: 500 });
+    console.error("API /api/submit error:", err);
+    return NextResponse.json({ error: err.message || "Server error" }, { status: 500 });
   }
 }

@@ -7,26 +7,16 @@ export function middleware(req: NextRequest) {
   const token = req.cookies.get("token")?.value;
   const { pathname } = req.nextUrl;
 
-  if (
-    token &&
-    (pathname === "/" ||
-      pathname.startsWith("/auth/login") ||
-      pathname.startsWith("/auth/signup"))
-  ) {
-    try {
-      const decoded: any = jwt.verify(token, process.env.JWT_SECRET || "default-secret");
-      return NextResponse.redirect(new URL(`/${decoded.username}`, req.url));
-    } catch {
-  
-      const res = NextResponse.next();
-      res.cookies.set("token", "", { expires: new Date(0) });
-      return res;
-    }
+  // 🔹 If logged in and trying to access login/signup → redirect to dashboard
+  if (token && (pathname.startsWith("/auth/login") || pathname.startsWith("/auth/signup"))) {
+    return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 
+  // 🔹 If NOT logged in and trying to access private pages → redirect to login
   if (
     !token &&
-    (pathname.startsWith("/profile") ||
+    (pathname.startsWith("/dashboard") ||
+      pathname.startsWith("/profile") ||
       pathname.startsWith("/settings") ||
       pathname.startsWith("/workout"))
   ) {
@@ -41,6 +31,7 @@ export const config = {
     "/",
     "/auth/login",
     "/auth/signup",
+    "/dashboard/:path*",
     "/profile/:path*",
     "/settings/:path*",
     "/workout/:path*",

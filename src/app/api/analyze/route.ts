@@ -1,3 +1,4 @@
+// src/app/api/analyze/route.ts
 import { NextResponse } from "next/server";
 
 export const config = {

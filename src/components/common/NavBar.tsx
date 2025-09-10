@@ -69,7 +69,6 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await logout(); // context handles redirect to login
-      // optionally navigate home
       router.replace("/auth/login");
     } catch (err) {
       console.error("Logout failed", err);
@@ -80,11 +79,7 @@ export default function Navbar() {
     <header className="w-full border-b border-border bg-background backdrop-blur-md fixed top-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
-        <Link
-          href="/
-        "
-          className="text-2xl font-bold tracking-wide"
-        >
+        <Link href="/" className="text-2xl font-bold tracking-wide">
           <span className="flex items-center gap-2">
             <span className="text-2xl font-bold text-blue-500">AthletiQ</span>
           </span>
@@ -96,65 +91,79 @@ export default function Navbar() {
             Home
           </Link>
           <Link
-            href="/annexure-a"
-            className="hover:text-primary transition-colors"
+            href="/about"
+            className="hover:text-primary text-lg"
+            onClick={() => setIsOpen(false)}
           >
-            Tests
-          </Link>
-          <Link
-            href="/features"
-            className="hover:text-primary transition-colors"
-          >
-            Features
-          </Link>
-          <Link
-            href="/leaderboard"
-            className="hover:text-primary transition-colors"
-          >
-            Leaderboard
-          </Link>
-          <Link href="/trainer" className="hover:text-primary text-lg">
-            Trainer
-          </Link>
-          <Link href="/ai-coach" className="hover:text-primary text-lg">
-            AI-coach
-          </Link>
-          <Link href="/about" className="hover:text-primary transition-colors">
             About
+          </Link>
+          <Link
+            href="/contact"
+            className="hover:text-primary text-lg"
+            onClick={() => setIsOpen(false)}
+          >
+            Contact
+          </Link>
+          {/* == Conditional links for authenticated users == */}
+          {isAuthenticated && (
+            <>
+              <Link
+                href="/annexure-a"
+                className="hover:text-primary transition-colors"
+              >
+                Tests
+              </Link>
+              <Link
+                href="/features"
+                className="hover:text-primary transition-colors"
+              >
+                Features
+              </Link>
+              <Link
+                href="/leaderboard"
+                className="hover:text-primary transition-colors"
+              >
+                Leaderboard
+              </Link>
+              <Link href="/trainer" className="hover:text-primary text-lg">
+                Trainer
+              </Link>
+            </>
+          )}
+          <Link
+            href="/ai-coach"
+            className="hover:text-primary transition-colors"
+          >
+            AI-coach
           </Link>
         </nav>
 
         {/* Actions */}
         <div className="flex items-center gap-3">
-          {/* If loading auth state show placeholder */}
           {loading ? (
-            <div className="w-10 h-10 bg-gray-200 rounded" />
+            <div className="w-10 h-10 bg-gray-200 rounded-full" />
           ) : isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer">
                   <AvatarImage
-                    src={profileImage || "/defaultImg.png"}
-                    alt={displayName}
+                    src={user?.imageUrl || profileImage || "/defaultImg.png"}
+                    alt={displayName || "User"}
                   />
                   <AvatarFallback>
-                    {(displayName || "U").charAt(0)}
+                    {(displayName || user?.name || "U").charAt(0)}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-48 mr-4">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
                   <Link href={`/profile/${user._id}`}>Profile</Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/settings">Settings</Link>
-                </DropdownMenuItem>
+
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={handleLogout}
-                  className="text-red-600"
+                  className="text-red-600 cursor-pointer"
                 >
                   Logout
                 </DropdownMenuItem>
@@ -171,10 +180,8 @@ export default function Navbar() {
             </>
           )}
 
-          {/* Dark Mode Toggle */}
           <ModeToggle />
 
-          {/* Mobile Menu Button */}
           <button
             className="md:hidden p-2 rounded-lg hover:bg-accent"
             onClick={() => setIsOpen(!isOpen)}
@@ -196,6 +203,7 @@ export default function Navbar() {
             >
               Home
             </Link>
+
             <Link
               href="/ai-coach"
               className="hover:text-primary text-lg"
@@ -203,47 +211,59 @@ export default function Navbar() {
             >
               AI-coach
             </Link>
-            <Link
-              href="/annexure-a"
-              className="hover:text-primary text-lg"
-              onClick={() => setIsOpen(false)}
-            >
-              Tests
-            </Link>
-            <Link
-              href="/features"
-              className="hover:text-primary text-lg"
-              onClick={() => setIsOpen(false)}
-            >
-              Features
-            </Link>
-            <Link
-              href="/leaderboard"
-              className="hover:text-primary text-lg"
-              onClick={() => setIsOpen(false)}
-            >
-              Leaderboard
-            </Link>
-            <Link
-              href="/trainer"
-              className="hover:text-primary text-lg"
-              onClick={() => setIsOpen(false)}
-            >
-              Trainer
-            </Link>
-            <Link
-              href="/achievements"
-              className="hover:text-primary text-lg"
-              onClick={() => setIsOpen(false)}
-            >
-              Workout
-            </Link>
+            {/* == Conditional links for authenticated users (Mobile) == */}
+            {isAuthenticated && (
+              <>
+                <Link
+                  href="/annexure-a"
+                  className="hover:text-primary text-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Tests
+                </Link>
+                <Link
+                  href="/features"
+                  className="hover:text-primary text-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Features
+                </Link>
+                <Link
+                  href="/leaderboard"
+                  className="hover:text-primary text-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Leaderboard
+                </Link>
+                <Link
+                  href="/trainer"
+                  className="hover:text-primary text-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Trainer
+                </Link>
+                <Link
+                  href="/achievements"
+                  className="hover:text-primary text-lg"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Workout
+                </Link>
+              </>
+            )}
             <Link
               href="/about"
               className="hover:text-primary text-lg"
               onClick={() => setIsOpen(false)}
             >
               About
+            </Link>
+            <Link
+              href="/contact"
+              className="hover:text-primary text-lg"
+              onClick={() => setIsOpen(false)}
+            >
+              Contact
             </Link>
 
             {loading ? null : isAuthenticated && user ? (

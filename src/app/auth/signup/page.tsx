@@ -1,379 +1,502 @@
 "use client";
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 
-export default function Signup() {
+import React, { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Cropper from "react-easy-crop";
+import type { Area } from "react-easy-crop";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+type FormShape = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  username: string;
+  dob: string;
+  age?: number;
+  weight: string;
+  gender: string;
+  country: string;
+  state: string;
+  district: string;
+  documentType: string;
+  documentNumber: string;
+  profileImage?: string | null;
+};
+
+export default function SignupPage() {
   const router = useRouter();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormShape>({
     firstName: "",
     lastName: "",
     email: "",
     password: "",
     username: "",
-    age: "",
-    gender: "",
     dob: "",
-    country: "", // ✅ Added
+    age: undefined,
+    weight: "",
+    gender: "",
+    country: "",
     state: "",
-    district: "", // ✅ Added
+    district: "",
     documentType: "Aadhaar",
     documentNumber: "",
+    profileImage: null,
   });
 
-  const [countries, setCountries] = useState([]);
-  const [states, setStates] = useState([]);
-  const [cities, setCities] = useState([]);
+  const [countries, setCountries] = useState<string[]>([]);
+  const [states, setStates] = useState<string[]>([]);
+  const [cities, setCities] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Fetch countries
+  // cropper states
+  const [imageSrc, setImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+  const [isCroppingOpen, setIsCroppingOpen] = useState(false);
+
+  // load countries from our backend
   useEffect(() => {
     const fetchCountries = async () => {
       try {
-        const res = await fetch(
-          "https://countriesnow.space/api/v0.1/countries/positions"
-        );
+        const res = await fetch("/api/countries");
         const json = await res.json();
-        const list = Array.isArray(json?.data) ? json.data : [];
-        setCountries(list);
+        setCountries(Array.isArray(json?.data) ? json.data : []);
       } catch (err) {
-        console.error("fetchCountries error:", err);
+        console.error("countries fetch error", err);
         setCountries([]);
       }
     };
     fetchCountries();
   }, []);
 
-  // Fetch states when country changes
+  // when country changes -> fetch states from backend
   useEffect(() => {
     if (!formData.country) {
       setStates([]);
       setCities([]);
+      setFormData((p) => ({ ...p, state: "", district: "" }));
       return;
     }
-
     const fetchStates = async () => {
       try {
-        const res = await fetch(
-          "https://countriesnow.space/api/v0.1/countries/states",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ country: formData.country }),
-          }
-        );
+        const res = await fetch("/api/states", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ country: formData.country }),
+        });
         const json = await res.json();
-        const list = Array.isArray(json?.data?.states) ? json.data.states : [];
-        setStates(list);
-        setFormData((prev) => ({ ...prev, state: "", district: "" }));
+        setStates(Array.isArray(json?.data) ? json.data : []);
+        setFormData((p) => ({ ...p, state: "", district: "" }));
         setCities([]);
       } catch (err) {
-        console.error("fetchStates error:", err);
+        console.error("states fetch error", err);
         setStates([]);
         setCities([]);
       }
     };
-
     fetchStates();
   }, [formData.country]);
 
-  // Fetch cities when state changes
+  // when state changes -> fetch cities
   useEffect(() => {
     if (!formData.country || !formData.state) {
       setCities([]);
+      setFormData((p) => ({ ...p, district: "" }));
       return;
     }
-
     const fetchCities = async () => {
       try {
-        const res = await fetch(
-          "https://countriesnow.space/api/v0.1/countries/state/cities",
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              country: formData.country,
-              state: formData.state,
-            }),
-          }
-        );
+        const res = await fetch("/api/cities", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ country: formData.country, state: formData.state }),
+        });
         const json = await res.json();
-        const list = Array.isArray(json?.data) ? json.data : [];
-        setCities(list);
-        setFormData((prev) => ({ ...prev, district: "" }));
+        setCities(Array.isArray(json?.data) ? json.data : []);
+        setFormData((p) => ({ ...p, district: "" }));
       } catch (err) {
-        console.error("fetchCities error:", err);
+        console.error("cities fetch error", err);
         setCities([]);
       }
     };
-
     fetchCities();
   }, [formData.state, formData.country]);
 
-  // Handle input changes
-  const handleChange = (e) => {
+  // calculate age from dob on client so user sees it
+  useEffect(() => {
+    if (!formData.dob) {
+      setFormData((p) => ({ ...p, age: undefined }));
+      return;
+    }
+    try {
+        const birth = new Date(formData.dob);
+        if (isNaN(birth.getTime())) {
+            setFormData(p => ({...p, age: undefined}));
+            return;
+        }
+        const today = new Date();
+        let age = today.getFullYear() - birth.getFullYear();
+        const m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
+          age--;
+        }
+        setFormData((p) => ({ ...p, age: age >= 0 ? age : undefined }));
+    } catch (e) {
+        setFormData(p => ({...p, age: undefined}));
+    }
+  }, [formData.dob]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((p) => ({ ...p, [name]: value }));
   };
 
-  // Validate form before submit
-  const validateForm = () => {
-    const required = [
+  // select components callback (shadcn)
+  const handleSelectChange = (name: keyof FormShape, value: string) => {
+    setFormData((p) => ({ ...p, [name]: value }));
+  };
+
+  // Image upload -> open cropper
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageSrc(reader.result as string);
+      setIsCroppingOpen(true);
+      setCrop({ x: 0, y: 0 });
+      setZoom(1);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = ''; // Reset file input
+  };
+
+  const onCropComplete = useCallback((_: Area, pixels: Area) => {
+    setCroppedAreaPixels(pixels);
+  }, []);
+
+  // create cropped image base64
+  const getCroppedImg = useCallback(async (imageSrc: string, cropPixels: Area | null) => {
+    if (!cropPixels) return null;
+    const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => resolve(img);
+      img.onerror = (e) => reject(e);
+      img.src = imageSrc;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.min(500, Math.round(cropPixels.width)); // Max width 500px
+    canvas.height = Math.min(500, Math.round(cropPixels.height)); // Max height 500px
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    ctx.drawImage(
+      image,
+      cropPixels.x,
+      cropPixels.y,
+      cropPixels.width,
+      cropPixels.height,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    return canvas.toDataURL("image/jpeg", 0.9);
+  }, []);
+
+  const handleCropSave = async () => {
+    if (!imageSrc || !croppedAreaPixels) {
+      alert("Nothing to crop");
+      return;
+    }
+    try {
+      const base64 = await getCroppedImg(imageSrc, croppedAreaPixels);
+      if (base64) {
+        setFormData((p) => ({ ...p, profileImage: base64 }));
+      }
+      setIsCroppingOpen(false);
+      setImageSrc(null);
+      setCroppedAreaPixels(null);
+    } catch (err) {
+      console.error("crop save error", err);
+      alert("Failed to crop image");
+    }
+  };
+
+  const validateForm = (): { ok: boolean; msg?: string } => {
+    const req = [
       "firstName",
       "lastName",
       "email",
       "password",
       "username",
-      "age",
-      "gender",
       "dob",
+      "weight",
+      "gender",
       "country",
       "state",
       "district",
       "documentType",
       "documentNumber",
-    ];
+    ] as (keyof FormShape)[];
 
-    console.log("Validating formData:", formData);
-
-    for (const key of required) {
-      const val = String(formData[key] ?? "").trim();
-      if (!val) {
-        console.error(`Error: ${key} is missing`);
-        alert(`${key} is required`);
-        return { ok: false, message: `${key} is required` };
-      }
+    for (const k of req) {
+      const val = String((formData as any)[k] ?? "").trim();
+      if (!val) return { ok: false, msg: `${k.charAt(0).toUpperCase() + k.slice(1)} is required` };
     }
-
-    console.log("Validation Passed ✅");
+    if (formData.age === undefined || formData.age < 0) return { ok: false, msg: "Invalid Date of Birth" };
+    if (!/^\S+@\S+\.\S+$/.test(formData.email)) return { ok: false, msg: "Invalid email format" };
     return { ok: true };
   };
 
-  // Submit form
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     const check = validateForm();
-    if (!check.ok) return;
-
-    console.log("Sending to backend:", formData);
+    if (!check.ok) {
+      alert(check.msg);
+      return;
+    }
 
     setLoading(true);
     try {
-      const res = await fetch("/api/signup", {
+      const payload = { ...formData };
+      delete payload.age; // Don't send client-calculated age to backend
+
+      const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      console.log("Server Response:", data);
-
-      if (res.status === 201) {
-        alert("Signup successful! Please login.");
-        router.push(`/dashboard/${data.user.username}`);
+      
+      // Check for success (201 Created)
+      if (res.status === 201 && data.success) {
+        alert("Signup successful!");
+        router.push(`/profile/${data.user.id}`);
       } else {
-        alert(data.message || "Signup failed");
+        // Use the 'error' field from the backend response
+        alert(data.error || "Signup failed. Please try again.");
       }
     } catch (err) {
-      console.error("Network Error:", err);
-      alert("Something went wrong, please try again later.");
+      console.error("signup network error", err);
+      alert("An unexpected network error occurred.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    
-      <div className="max-w-2xl mx-auto mt-8 bg-white shadow-lg rounded-lg p-6">
-        <h1 className="text-2xl font-bold mb-6 text-center">Signup</h1>
+    <>
+      <Card className="max-w-3xl mx-auto my-8 shadow-xl">
+        <CardContent className="p-6 space-y-6">
+          <h1 className="text-2xl font-bold text-center">Create an Account</h1>
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-          {/* First & Last Name */}
-          <input
-            name="firstName"
-            value={formData.firstName}
-            onChange={handleChange}
-            type="text"
-            placeholder="First Name"
-            className="border p-2 rounded"
-            required
-          />
-          <input
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleChange}
-            type="text"
-            placeholder="Last Name"
-            className="border p-2 rounded"
-            required
-          />
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="firstName">First Name</Label>
+              <Input id="firstName" name="firstName" value={formData.firstName} onChange={handleChange} required />
+            </div>
 
-          {/* Email */}
-          <input
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            type="email"
-            placeholder="Email"
-            className="border p-2 rounded col-span-2"
-            required
-          />
+            <div>
+              <Label htmlFor="lastName">Last Name</Label>
+              <Input id="lastName" name="lastName" value={formData.lastName} onChange={handleChange} required />
+            </div>
 
-          {/* Password */}
-          <input
-            name="password"
-            value={formData.password}
-            onChange={handleChange}
-            type="password"
-            placeholder="Password"
-            className="border p-2 rounded col-span-2"
-            required
-          />
+            <div className="md:col-span-2">
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" type="email" name="email" value={formData.email} onChange={handleChange} required />
+            </div>
 
-          {/* Username */}
-          <input
-            name="username"
-            value={formData.username}
-            onChange={handleChange}
-            type="text"
-            placeholder="Username"
-            className="border p-2 rounded col-span-2"
-            required
-          />
+            <div className="md:col-span-2">
+              <Label htmlFor="password">Password</Label>
+              <Input id="password" type="password" name="password" value={formData.password} onChange={handleChange} required />
+            </div>
 
-          {/* Age & Gender */}
-          <input
-            name="age"
-            value={formData.age}
-            onChange={handleChange}
-            type="number"
-            placeholder="Age"
-            className="border p-2 rounded"
-            required
-          />
-          <select
-            name="gender"
-            value={formData.gender}
-            onChange={handleChange}
-            className="border p-2 rounded"
-            required
-          >
-            <option value="">Select Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
+            <div className="md:col-span-2">
+              <Label htmlFor="username">Username</Label>
+              <Input id="username" name="username" value={formData.username} onChange={handleChange} required />
+            </div>
 
-          {/* Date of Birth */}
-          <input
-            name="dob"
-            value={formData.dob}
-            onChange={handleChange}
-            type="date"
-            className="border p-2 rounded col-span-2"
-            required
-          />
+            <div>
+              <Label htmlFor="dob">Date of Birth</Label>
+              <Input id="dob" type="date" name="dob" value={formData.dob} onChange={handleChange} required />
+            </div>
 
-          {/* Country */}
-          <select
-            name="country"
-            value={formData.country}
-            onChange={(e) =>
-              setFormData((prev) => ({
-                ...prev,
-                country: e.target.value,
-                state: "",
-                district: "",
-              }))
-            }
-            className="border p-2 rounded col-span-2"
-            required
-          >
-            <option value="">Select Country</option>
-            {countries.map((c, idx) => (
-              <option key={idx} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            <div>
+              <Label>Age</Label>
+              <Input value={formData.age ?? ""} readOnly disabled />
+            </div>
 
-          {/* State */}
-          {states.length > 0 && (
-            <select
-              name="state"
-              value={formData.state}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  state: e.target.value,
-                  district: "",
-                }))
-              }
-              className="border p-2 rounded col-span-2"
-              required
-            >
-              <option value="">Select State</option>
-              {states.map((s, idx) => (
-                <option key={idx} value={s.name}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-          )}
+            <div>
+              <Label htmlFor="weight">Weight (kg)</Label>
+              <Input id="weight" type="number" name="weight" value={formData.weight} onChange={handleChange} required />
+            </div>
 
-          {/* District */}
-          {cities.length > 0 && (
-            <select
-              name="district"
-              value={formData.district}
-              onChange={handleChange}
-              className="border p-2 rounded col-span-2"
-              required
-            >
-              <option value="">Select District</option>
-              {cities.map((district, idx) => (
-                <option key={idx} value={district}>
-                  {district}
-                </option>
-              ))}
-            </select>
-          )}
+            <div>
+              <Label htmlFor="gender">Gender</Label>
+              <Select onValueChange={(val) => handleSelectChange("gender", val)} value={formData.gender}>
+                <SelectTrigger id="gender">
+                  <SelectValue placeholder="Select Gender" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Male">Male</SelectItem>
+                  <SelectItem value="Female">Female</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="md:col-span-2">
+               <Label>Profile Image (optional)</Label>
+               <Input type="file" accept="image/*" onChange={handleImageUpload} className="file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-violet-50 file:text-violet-700 hover:file:bg-violet-100"/>
+               {formData.profileImage && (
+                 <div className="flex gap-4 items-center mt-2">
+                   <img src={formData.profileImage} alt="preview" className="w-24 h-24 object-cover rounded-full" />
+                   <div className="flex gap-2">
+                     <Button
+                       type="button"
+                       size="sm"
+                       onClick={() => {
+                         setImageSrc(formData.profileImage ?? null);
+                         setIsCroppingOpen(true);
+                       }}
+                     >
+                       Re-crop
+                     </Button>
+                     <Button type="button" variant="ghost" size="sm" onClick={() => setFormData((p) => ({ ...p, profileImage: null }))}>
+                       Remove
+                     </Button>
+                   </div>
+                 </div>
+               )}
+             </div>
 
-          {/* Document Type */}
-          <select
-            name="documentType"
-            value={formData.documentType}
-            onChange={handleChange}
-            className="border p-2 rounded col-span-2"
-            required
-          >
-            <option value="Aadhaar">Aadhaar</option>
-            <option value="Passport">Passport</option>
-            <option value="Driving License">Driving License</option>
-          </select>
+            <div className="md:col-span-2">
+              <Label htmlFor="country">Country</Label>
+              <Select onValueChange={(val) => handleSelectChange("country", val)} value={formData.country}>
+                <SelectTrigger id="country">
+                  <SelectValue placeholder="Select Country" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c, idx) => (
+                    <SelectItem key={idx} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          {/* Document Number */}
-          <input
-            name="documentNumber"
-            value={formData.documentNumber}
-            onChange={handleChange}
-            type="text"
-            placeholder="Document Number"
-            className="border p-2 rounded col-span-2"
-            required
-          />
+            <div className="md:col-span-2">
+              <Label htmlFor="state">State / Region</Label>
+              {states.length > 0 ? (
+                 <Select onValueChange={(val) => handleSelectChange("state", val)} value={formData.state}>
+                    <SelectTrigger id="state">
+                      <SelectValue placeholder="Select State"/>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {states.map((s, i) => (
+                        <SelectItem key={i} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+              ) : (
+                <Input name="state" value={formData.state} onChange={handleChange} placeholder="Enter state" required />
+              )}
+            </div>
+            
+            <div className="md:col-span-2">
+              <Label htmlFor="district">District / City</Label>
+              {cities.length > 0 ? (
+                <Select onValueChange={(val) => handleSelectChange("district", val)} value={formData.district}>
+                  <SelectTrigger id="district">
+                    <SelectValue placeholder="Select District" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {cities.map((d, i) => (
+                      <SelectItem key={i} value={d}>
+                        {d}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input name="district" value={formData.district} onChange={handleChange} placeholder="Enter district/city" required />
+              )}
+            </div>
 
-          {/* Submit Button */}
-          <button
-            type="submit"
-            className="col-span-2 bg-blue-500 text-white py-2 rounded hover:bg-blue-600 transition"
-            disabled={loading}
-          >
-            {loading ? "Signing up..." : "Signup"}
-          </button>
-        </form>
-      </div>{" "}
-    
+            <div>
+              <Label htmlFor="documentType">Document Type</Label>
+               <Select onValueChange={(val) => handleSelectChange("documentType", val)} value={formData.documentType}>
+                 <SelectTrigger id="documentType">
+                   <SelectValue placeholder="Select Document" />
+                 </SelectTrigger>
+                 <SelectContent>
+                   <SelectItem value="Aadhaar">Aadhaar</SelectItem>
+                   <SelectItem value="Passport">Passport</SelectItem>
+                   <SelectItem value="Driving License">Driving License</SelectItem>
+                 </SelectContent>
+               </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="documentNumber">Document Number</Label>
+              <Input id="documentNumber" name="documentNumber" value={formData.documentNumber} onChange={handleChange} required />
+            </div>
+
+            <div className="md:col-span-2">
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Creating Account..." : "Signup"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+
+      {/* cropping modal */}
+      {isCroppingOpen && imageSrc && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+          <div className="bg-white rounded-lg overflow-hidden w-full max-w-lg">
+            <div className="p-4 space-y-4">
+              <h3 className="text-lg font-semibold text-center">Crop Your Image</h3>
+              <div className="relative w-full h-80 bg-gray-200">
+                <Cropper image={imageSrc} crop={crop} zoom={zoom} aspect={1} onCropChange={setCrop} onCropComplete={onCropComplete} onZoomChange={setZoom} cropShape="round" showGrid={false}/>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Label htmlFor="zoom-slider" className="text-sm">Zoom</Label>
+                <input id="zoom-slider" type="range" min={1} max={3} step={0.01} value={zoom} onChange={(e) => setZoom(Number(e.target.value))} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer" />
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <Button variant="ghost" onClick={() => { setIsCroppingOpen(false); setImageSrc(null); setCroppedAreaPixels(null); }}>
+                  Cancel
+                </Button>
+                <Button onClick={handleCropSave}>Crop & Save</Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

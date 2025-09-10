@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "@/context/AuthContext";
 
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,28 +12,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-// FIX: Removed unused Alert components
-import {
-  Upload,
-  CheckCircle,
-  AlertTriangle,
-  Video,
-} from "lucide-react";
+import { Upload, CheckCircle, AlertTriangle, Video } from "lucide-react";
 import Link from "next/link";
 
-/**
- * Annexure A Flow (client)
- * - Record or Upload (<= 60s) for video tests
- * - Direct unsigned upload to Cloudinary (client)
- * - Submit metadata + videoUrl to /api/submit
- * - MediaPipe analysis inside browser for situps, vertical jump, shuttle run
- * - GPS tracker for endurance run
- *
- * Make sure NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET and NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME are set.
- */
-
 type ExerciseId = "situps" | "vertical_jump" | "shuttle_run" | "endurance_run";
-const TEST_ORDER: ExerciseId[] = ["situps", "vertical_jump", "shuttle_run", "endurance_run"];
+const TEST_ORDER: ExerciseId[] = [
+  "situps",
+  "vertical_jump",
+  "shuttle_run",
+  "endurance_run",
+];
 const MAX_VIDEO_SECONDS = 60;
 const CLOUD_NAME = process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME!;
 const UPLOAD_PRESET = process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET!;
@@ -57,9 +46,12 @@ interface AnalysisResult {
 }
 
 export default function AnnexureFlow() {
+  // ---- basic UI / flow state ----
   const [showInstructions, setShowInstructions] = useState(true);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [selectedExercise, setSelectedExercise] = useState<ExerciseId>(TEST_ORDER[0]);
+  const [selectedExercise, setSelectedExercise] = useState<ExerciseId>(
+    TEST_ORDER[0]
+  );
 
   // recording/upload
   const [mediaStream, setMediaStream] = useState<MediaStream | null>(null);
@@ -71,7 +63,9 @@ export default function AnnexureFlow() {
 
   // analysis & results
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
 
   // Cloudinary upload progress
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -89,19 +83,47 @@ export default function AnnexureFlow() {
   const overlayRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // athleteId (required by server)
+  const [athleteId, setAthleteId] = useState<string | null>(null);
+
+  // useAuth context — recommended single source of truth for logged-in user
+  const { user: authUser, refreshUser, isAuthenticated } = useAuth();
+
   useEffect(() => {
     setSelectedExercise(TEST_ORDER[currentStepIndex]);
   }, [currentStepIndex]);
 
-  // FIX: Refactored video source management for clarity and correctness.
-  // This prevents race conditions and ensures the correct source is always displayed.
+  // Use auth context to populate athleteId. If context hasn't loaded yet, call refreshUser once.
+  useEffect(() => {
+    if (authUser && (authUser as any)._id) {
+      setAthleteId(String((authUser as any)._id));
+      return;
+    }
+
+    // fallback: attempt one refresh (AuthProvider might still be fetching)
+    let mounted = true;
+    (async () => {
+      try {
+        const u = await refreshUser();
+        if (mounted && u && (u as any)._id) setAthleteId(String((u as any)._id));
+      } catch (e) {
+        console.error("Auth refresh fallback failed:", e);
+      }
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, [authUser, refreshUser, isAuthenticated]);
+
+  // Video source management
   useEffect(() => {
     const videoEl = videoRef.current;
     if (!videoEl) return;
 
     if (mediaStream) {
       videoEl.srcObject = mediaStream;
-      videoEl.muted = true; // Mute live preview
+      videoEl.muted = true;
       videoEl.play().catch(console.error);
     } else if (videoUrl) {
       videoEl.srcObject = null;
@@ -109,14 +131,12 @@ export default function AnnexureFlow() {
       videoEl.muted = false;
       videoEl.play().catch(console.error);
     } else {
-      // Clear video source completely
       videoEl.srcObject = null;
       videoEl.removeAttribute("src");
       videoEl.load();
     }
   }, [mediaStream, videoUrl]);
 
-  // FIX: Added cleanup for object URLs to prevent memory leaks.
   useEffect(() => {
     return () => {
       if (videoUrl && videoUrl.startsWith("blob:")) {
@@ -126,26 +146,28 @@ export default function AnnexureFlow() {
   }, [videoUrl]);
 
   const clearVideoSource = () => {
-    // Revoke URL if it's a blob URL
     if (videoUrl && videoUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(videoUrl);
+      URL.revokeObjectURL(videoUrl);
     }
     setRecordedBlob(null);
     setUploadedFile(null);
     setVideoUrl("");
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ""; // This is crucial for re-uploading the same file
-    }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // RECORDING
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: false,
+      });
       setMediaStream(stream);
-      clearVideoSource(); // Clear previous video
+      clearVideoSource();
 
-      const options: MediaRecorderOptions = { mimeType: "video/webm;codecs=vp8" };
+      const options: MediaRecorderOptions = {
+        mimeType: "video/webm;codecs=vp8",
+      };
       const mr = new MediaRecorder(stream, options);
       const chunks: Blob[] = [];
 
@@ -186,23 +208,30 @@ export default function AnnexureFlow() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (!f) return;
-    
-    clearVideoSource(); // Clear previous video and revoke old URL
-    
+
+    clearVideoSource();
     setUploadedFile(f);
     setRecordedBlob(null);
     setVideoUrl(URL.createObjectURL(f));
   };
 
   // Haversine for GPS
-  const haversineKm = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  const haversineKm = (
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ) => {
     const toRad = (d: number) => (d * Math.PI) / 180;
     const R = 6371;
     const dLat = toRad(lat2 - lat1);
     const dLon = toRad(lon2 - lon1);
     const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      Math.cos(toRad(lat1)) *
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
 
@@ -251,7 +280,6 @@ export default function AnnexureFlow() {
     const dur = durationSec;
     const pace = dist > 0 ? dur / 60 / dist : 0;
 
-    // scoring
     let score = 60;
     if (pace > 0) {
       if (pace <= 4) score = 95;
@@ -273,7 +301,7 @@ export default function AnnexureFlow() {
       score,
       feedback,
       corrections,
-      distanceKm: +(dist.toFixed(3)),
+      distanceKm: +dist.toFixed(3),
       durationSec: dur,
       paceMinPerKm: +(pace || 0),
     };
@@ -284,69 +312,100 @@ export default function AnnexureFlow() {
     await submitMetadataAndVideo(res, null);
     advanceStep();
   };
-  
-    // CLOUDINARY unsigned upload (client) using Fetch API
-    const uploadToCloudinary = (file: File) => {
-        return new Promise<{ secure_url: string; public_id: string }>(async (resolve, reject) => {
-            if (!CLOUD_NAME || !UPLOAD_PRESET) {
-                return reject(new Error("Missing Cloudinary config."));
-            }
 
-            const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/auto/upload`;
-            const formData = new FormData();
-            formData.append("file", file);
-            formData.append("upload_preset", UPLOAD_PRESET);
+  // CLOUDINARY unsigned upload (client) using Fetch API
+  const uploadToCloudinary = async (file: File) => {
+    if (!CLOUD_NAME || !UPLOAD_PRESET) {
+      throw new Error(
+        "Missing Cloudinary config (NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME or NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET)."
+      );
+    }
 
-            try {
-                // Using fetch for modern async/await syntax and better error handling
-                const response = await fetch(url, {
-                    method: 'POST',
-                    body: formData,
-                });
+    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/video/upload`;
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", UPLOAD_PRESET);
+    if (process.env.NEXT_PUBLIC_CLOUDINARY_FOLDER) {
+      formData.append(
+        "folder",
+        String(process.env.NEXT_PUBLIC_CLOUDINARY_FOLDER)
+      );
+    }
 
-                const data = await response.json();
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        body: formData,
+      });
 
-                if (!response.ok) {
-                    throw new Error(data.error?.message || 'Cloudinary upload failed.');
-                }
-                
-                // Track progress with fetch is more complex, so we'll simulate it for UI
-                setUploadProgress(50); // Simulate progress
-                setUploadProgress(100);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(
+          `Cloudinary upload failed: ${res.status} ${res.statusText} — ${text}`
+        );
+      }
 
-                resolve({ secure_url: data.secure_url, public_id: data.public_id });
-
-            } catch (error) {
-                console.error("Cloudinary upload error:", error);
-                reject(error);
-            }
-        });
-    };
+      const data = await res.json();
+      return {
+        secure_url: data.secure_url,
+        public_id: data.public_id,
+        raw: data,
+      };
+    } catch (err) {
+      console.error("Cloudinary upload error:", err);
+      throw err;
+    }
+  };
 
   // SUBMIT metadata + videoUrl to server (/api/submit)
-  const submitMetadataAndVideo = async (metadata: AnalysisResult, videoBlob: Blob | null) => {
+  const submitMetadataAndVideo = async (
+    metadata: AnalysisResult,
+    videoBlob: Blob | null
+  ) => {
+    // defensive: ensure athleteId
+    if (!athleteId) {
+      alert(
+        "Missing athlete ID. Please login or ensure your user session is active."
+      );
+      console.error("submit aborted: missing athleteId");
+      return null;
+    }
+
     try {
       let videoUrlToSend = "";
       if (videoBlob) {
-        setUploadProgress(1); // Start progress indicator
-        const file = videoBlob instanceof File ? videoBlob : new File([videoBlob], `video-${metadata.exercise}-${Date.now()}.webm`, { type: "video/webm" });
+        setUploadProgress(1);
+        const file =
+          videoBlob instanceof File
+            ? videoBlob
+            : new File(
+                [videoBlob],
+                `video-${metadata.exercise}-${Date.now()}.webm`,
+                { type: "video/webm" }
+              );
         const cloudRes = await uploadToCloudinary(file);
         videoUrlToSend = cloudRes.secure_url;
         setUploadProgress(100);
       }
 
+      const payload = { metadata, videoUrl: videoUrlToSend, athleteId };
+
       const res = await fetch("/api/submit", {
         method: "POST",
+        credentials: "include", // ensure session cookie is sent
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ metadata, videoUrl: videoUrlToSend }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Server save failed");
+      if (!res.ok) {
+        console.error("server error response:", data);
+        throw new Error(data?.error || "Server save failed");
+      }
       return data.result;
     } catch (err) {
       console.error("submitMetadataAndVideo error:", err);
-      alert("Failed to save result. See console.");
+      alert("Failed to save result. See console for details.");
       return null;
     } finally {
       setUploadProgress(0);
@@ -365,7 +424,10 @@ export default function AnnexureFlow() {
       return;
     }
 
-    const metadataOk = await checkVideoDurationWithinLimit(source, MAX_VIDEO_SECONDS);
+    const metadataOk = await checkVideoDurationWithinLimit(
+      source,
+      MAX_VIDEO_SECONDS
+    );
     if (!metadataOk) {
       setIsAnalyzing(false);
       return;
@@ -387,25 +449,26 @@ export default function AnnexureFlow() {
     }
   };
 
-  // helper: check duration
   const checkVideoDurationWithinLimit = (blob: Blob, maxSeconds: number) => {
     return new Promise<boolean>((resolve) => {
       const video = document.createElement("video");
       video.preload = "metadata";
       const url = URL.createObjectURL(blob);
       video.src = url;
-      
+
       video.onloadedmetadata = () => {
         const dur = video.duration || 0;
-        URL.revokeObjectURL(url); // Clean up the object URL immediately
+        URL.revokeObjectURL(url);
         if (dur > maxSeconds) {
-          alert(`Video is too long (${Math.round(dur)}s). Maximum duration is ${maxSeconds}s.`);
+          alert(
+            `Video is too long (${Math.round(
+              dur
+            )}s). Maximum duration is ${maxSeconds}s.`
+          );
           resolve(false);
-        } else {
-          resolve(true);
-        }
+        } else resolve(true);
       };
-      
+
       video.onerror = () => {
         URL.revokeObjectURL(url);
         alert("Could not read video metadata. The file may be corrupt.");
@@ -414,7 +477,7 @@ export default function AnnexureFlow() {
     });
   };
 
-  // MEDIA PIPE ANALYSIS (client)
+  // MEDIA PIPE analysis function (kept mostly same as your original, but minimal tuning)
   const analyzeVideoFrontend = async (blob: Blob): Promise<AnalysisResult> => {
     const mpPose = await import("@mediapipe/pose");
     const mpDraw = await import("@mediapipe/drawing_utils");
@@ -436,110 +499,133 @@ export default function AnnexureFlow() {
     const overlay = overlayRef.current!;
     const ctx = overlay.getContext("2d")!;
 
-    // Metrics
-    const hipYs: number[] = [], timestamps: number[] = [], trunkAngles: number[] = [], turnTimestamps: number[] = [], baselineSamples: number[] = [];
-    let sitReps = 0, inUp = false, lastHipX = NaN, lastDirection = 0, baselineMeasured = false;
+    // internal metrics:
+    const hipYs: number[] = [];
+    const timestamps: number[] = [];
+    const trunkAngles: number[] = [];
+    const turnTimestamps: number[] = [];
+    const baselineSamples: number[] = [];
+    let sitReps = 0;
+    let inUp = false;
+    let lastHipX = NaN;
+    let lastDirection = 0;
+    let baselineMeasured = false;
     const baselineSampleDuration = 0.8;
 
-    const angleBetween = (ax: number, ay: number, bx: number, by: number, cx: number, cy: number) => {
-        const v1x = ax - bx, v1y = ay - by;
-        const v2x = cx - bx, v2y = cy - by;
-        const dot = v1x * v2x + v1y * v2y;
-        const mag1 = Math.hypot(v1x, v1y), mag2 = Math.hypot(v2x, v2y);
-        if (mag1 === 0 || mag2 === 0) return 0;
-        const cos = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
-        return (Math.acos(cos) * 180) / Math.PI;
-    };
+    function angleBetween(ax:number, ay:number, bx:number, by:number, cx:number, cy:number) {
+      const v1x = ax - bx, v1y = ay - by;
+      const v2x = cx - bx, v2y = cy - by;
+      const dot = v1x * v2x + v1y * v2y;
+      const mag1 = Math.hypot(v1x, v1y), mag2 = Math.hypot(v2x, v2y);
+      if (mag1 === 0 || mag2 === 0) return 0;
+      const cos = Math.max(-1, Math.min(1, dot / (mag1 * mag2)));
+      return (Math.acos(cos) * 180) / Math.PI;
+    }
 
     pose.onResults((results: any) => {
-        ctx.clearRect(0, 0, overlay.width, overlay.height);
-        if (!results.poseLandmarks) return;
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+      if (!results.poseLandmarks) return;
+      try {
+        mpDraw.drawConnectors(ctx, results.poseLandmarks, mpPose.POSE_CONNECTIONS, { color: "#00FF00", lineWidth: 2 });
+        mpDraw.drawLandmarks(ctx, results.poseLandmarks, { color: "#FF0000", lineWidth: 1 });
+      } catch (e) {
+        console.error("draw error:", e);
+      }
 
-        try {
-            mpDraw.drawConnectors(ctx, results.poseLandmarks, mpPose.POSE_CONNECTIONS, { color: "#00FF00", lineWidth: 2 });
-            mpDraw.drawLandmarks(ctx, results.poseLandmarks, { color: "#FF0000", lineWidth: 1 });
-        } catch (e) { console.error("Error drawing landmarks:", e); } // FIX: Log error instead of silent catch
+      const lm = results.poseLandmarks;
+      const leftShoulder = lm[11], rightShoulder = lm[12];
+      const leftHip = lm[23], rightHip = lm[24];
+      const leftKnee = lm[25], rightKnee = lm[26];
 
-        const lm = results.poseLandmarks;
-        const leftShoulder = lm[11], rightShoulder = lm[12];
-        const leftHip = lm[23], rightHip = lm[24];
-        const leftKnee = lm[25], rightKnee = lm[26];
+      if (!leftShoulder || !rightShoulder || !leftHip || !rightHip || !leftKnee || !rightKnee) return;
 
-        if (!leftShoulder || !rightShoulder || !leftHip || !rightHip || !leftKnee || !rightKnee) return;
+      const shoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+      const hipY = (leftHip.y + rightHip.y) / 2;
+      const hipX = (leftHip.x + rightHip.x) / 2;
+      hipYs.push(hipY);
+      timestamps.push(v.currentTime);
 
-        const shoulderY = (leftShoulder.y + rightShoulder.y) / 2;
-        const hipY = (leftHip.y + rightHip.y) / 2;
-        const hipX = (leftHip.x + rightHip.x) / 2;
-        hipYs.push(hipY);
-        timestamps.push(v.currentTime);
+      const trunkAngle = angleBetween(
+        (leftShoulder.x + rightShoulder.x) / 2,
+        shoulderY,
+        hipX,
+        hipY,
+        (leftKnee.x + rightKnee.x) / 2,
+        (leftKnee.y + rightKnee.y) / 2
+      );
+      trunkAngles.push(trunkAngle);
 
-        const trunkAngle = angleBetween( (leftShoulder.x + rightShoulder.x) / 2, shoulderY, hipX, hipY, (leftKnee.x + rightKnee.x) / 2, (leftKnee.y + rightKnee.y) / 2 );
-        trunkAngles.push(trunkAngle);
-
-        if (selectedExercise === "situps") {
-            const diff = shoulderY - hipY;
-            if (diff < -0.16 && !inUp) inUp = true;
-            if (diff > -0.06 && inUp) { sitReps++; inUp = false; }
+      if (selectedExercise === "situps") {
+        const diff = shoulderY - hipY;
+        if (diff < -0.16 && !inUp) inUp = true;
+        if (diff > -0.06 && inUp) {
+          sitReps++;
+          inUp = false;
         }
+      }
 
-        if (selectedExercise === "shuttle_run") {
-            if (!isNaN(lastHipX)) {
-                const dx = hipX - lastHipX;
-                const dir = dx > 0.001 ? 1 : dx < -0.001 ? -1 : lastDirection;
-                if (dir !== lastDirection && lastDirection !== 0) turnTimestamps.push(v.currentTime);
-                lastDirection = dir;
-            } else {
-                lastDirection = 0;
-            }
-            lastHipX = hipX;
-        }
+      if (selectedExercise === "shuttle_run") {
+        if (!isNaN(lastHipX)) {
+          const dx = hipX - lastHipX;
+          const dir = dx > 0.001 ? 1 : dx < -0.001 ? -1 : lastDirection;
+          if (dir !== lastDirection && lastDirection !== 0) turnTimestamps.push(v.currentTime);
+          lastDirection = dir;
+        } else lastDirection = 0;
+        lastHipX = hipX;
+      }
 
-        if (!baselineMeasured && v.currentTime <= baselineSampleDuration) baselineSamples.push(hipY);
-        else if (!baselineMeasured) baselineMeasured = true;
+      if (!baselineMeasured && v.currentTime <= baselineSampleDuration) baselineSamples.push(hipY);
+      else if (!baselineMeasured) baselineMeasured = true;
     });
 
+    // run pose on video frames
     await new Promise<void>((resolve) => {
-        const onLoaded = () => {
-            // FIX: Set canvas dimensions after video metadata is loaded
-            overlay.width = v.videoWidth;
-            overlay.height = v.videoHeight;
-            
-            v.currentTime = 0;
-            v.play().catch(console.error);
+      const onLoaded = () => {
+        overlay.width = v.videoWidth;
+        overlay.height = v.videoHeight;
 
-            let rafId: number;
-            const tick = async () => {
-                if (v.paused || v.ended || v.currentTime >= MAX_VIDEO_SECONDS) {
-                    cancelAnimationFrame(rafId);
-                    resolve();
-                    return;
-                }
-                await pose.send({ image: v });
-                rafId = requestAnimationFrame(tick);
-            };
-            tick();
+        v.currentTime = 0;
+        v.play().catch(console.error);
+
+        let rafId = 0;
+        const tick = async () => {
+          if (v.paused || v.ended || v.currentTime >= MAX_VIDEO_SECONDS) {
+            cancelAnimationFrame(rafId);
+            resolve();
+            return;
+          }
+          await pose.send({ image: v });
+          rafId = requestAnimationFrame(tick);
         };
+        tick();
+      };
 
-        if (v.readyState >= 2) onLoaded();
-        else v.addEventListener("loadedmetadata", onLoaded, { once: true });
-        v.addEventListener("ended", () => resolve(), { once: true });
+      if (v.readyState >= 2) onLoaded();
+      else v.addEventListener("loadedmetadata", onLoaded, { once: true });
+      v.addEventListener("ended", () => resolve(), { once: true });
     });
 
     pose.close();
 
-    // Compute results logic remains the same...
     const trunkAvg = trunkAngles.reduce((s, v) => s + v, 0) / Math.max(1, trunkAngles.length);
     const trunkMin = Math.min(...(trunkAngles.length ? trunkAngles : [0]));
     const trunkMax = Math.max(...(trunkAngles.length ? trunkAngles : [0]));
 
+    const median = (arr:number[]) => {
+      if (!arr.length) return 0;
+      const s = [...arr].sort((a,b)=>a-b);
+      const m = Math.floor(s.length/2);
+      return s.length%2 ? s[m] : (s[m-1]+s[m]) / 2;
+    };
+
     if (selectedExercise === "situps") {
       const reps = sitReps;
-      const angleStd = Math.sqrt(trunkAngles.reduce((s, v) => s + (v - trunkAvg) ** 2, 0) / Math.max(1, trunkAngles.length));
+      const angleStd = Math.sqrt(trunkAngles.reduce((s,v)=>s+(v-trunkAvg)**2,0) / Math.max(1, trunkAngles.length));
       const repsScore = Math.min(40, reps);
       const stabilityBonus = Math.max(0, 20 - angleStd);
       const finalScore = Math.round(Math.max(0, Math.min(100, 40 + repsScore + stabilityBonus)));
-      const feedback: string[] = [];
-      const corrections: string[] = [];
+      const feedback:string[] = [];
+      const corrections:string[] = [];
       if (reps >= 30) feedback.push("Great rep volume");
       else if (reps >= 15) feedback.push("Moderate reps");
       else corrections.push("Increase reps and control");
@@ -563,11 +649,11 @@ export default function AnnexureFlow() {
       const displacement = baseline - minHip;
       const approxJumpCm = Math.round(displacement * 170);
       const dispScore = Math.min(40, Math.round(displacement * 200));
-      const angleStd = trunkAngles.length ? Math.sqrt(trunkAngles.reduce((s, v) => s + (v - trunkAvg) ** 2, 0) / trunkAngles.length) : 0;
+      const angleStd = trunkAngles.length ? Math.sqrt(trunkAngles.reduce((s,v)=>s+(v-trunkAvg)**2,0) / trunkAngles.length) : 0;
       const stabilityBonus = Math.max(0, 20 - angleStd);
       const finalScore = Math.round(Math.max(0, Math.min(100, 40 + dispScore + stabilityBonus)));
-      const feedback: string[] = [];
-      const corrections: string[] = [];
+      const feedback:string[] = [];
+      const corrections:string[] = [];
       if (displacement < 0.01) corrections.push("Low displacement; check camera framing.");
       else feedback.push(`Displacement detected: ${Math.round(displacement * 1000) / 1000}`);
       if (approxJumpCm >= 40) feedback.push(`~${approxJumpCm} cm`);
@@ -587,7 +673,7 @@ export default function AnnexureFlow() {
 
     if (selectedExercise === "shuttle_run") {
       const turns = turnTimestamps.length;
-      const splitTimes: number[] = [];
+      const splitTimes:number[] = [];
       for (let i = 1; i < turnTimestamps.length; i++) splitTimes.push(Math.max(0, turnTimestamps[i] - turnTimestamps[i - 1]));
       if (turnTimestamps.length > 0) {
         splitTimes.unshift(Math.max(0, turnTimestamps[0] - (timestamps[0] || 0)));
@@ -597,14 +683,14 @@ export default function AnnexureFlow() {
         const dur = timestamps.length ? timestamps[timestamps.length - 1] - (timestamps[0] || 0) : 0;
         splitTimes.push(dur);
       }
-      const avgSplit = splitTimes.reduce((s, v) => s + v, 0) / Math.max(1, splitTimes.length);
+      const avgSplit = splitTimes.reduce((s,v)=>s+v,0) / Math.max(1, splitTimes.length);
       const splitScore = Math.round(Math.max(0, Math.min(50, 50 - avgSplit * 6)));
       const trunkAngleMin = Math.min(...(trunkAngles.length ? trunkAngles : [0]));
       const trunkAngleMax = Math.max(...(trunkAngles.length ? trunkAngles : [0]));
       const stabilityPenalty = Math.max(0, Math.min(20, Math.round((trunkAngleMax - trunkAngleMin) / 2)));
       const finalScore = Math.round(Math.max(0, Math.min(100, 40 + splitScore - stabilityPenalty)));
-      const feedback: string[] = [];
-      const corrections: string[] = [];
+      const feedback:string[] = [];
+      const corrections:string[] = [];
       if (turns >= 4) feedback.push(`Turns detected: ${turns}`);
       else corrections.push("Not many turns detected");
       if (avgSplit > 2.5) corrections.push("Slow turns");
@@ -622,27 +708,22 @@ export default function AnnexureFlow() {
       } as AnalysisResult;
     }
 
-    return { exercise: selectedExercise, score: 60, feedback: ["No analysis available"], corrections: ["Could not process this exercise type."] };
+    return {
+      exercise: selectedExercise,
+      score: 60,
+      feedback: ["No analysis available"],
+      corrections: ["Could not process this exercise type."],
+    };
   };
 
-  const median = (arr: number[]) => {
-    if (!arr.length) return 0;
-    const s = [...arr].sort((a, b) => a - b);
-    const m = Math.floor(s.length / 2);
-    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-  };
-
-  // advance sequence
+  // advance step
   const advanceStep = () => {
-    clearVideoSource(); // Use the unified clear function
-    if (currentStepIndex < TEST_ORDER.length - 1) {
-      setCurrentStepIndex((i) => i + 1);
-    } else {
-      alert("All tests completed! Visit Progress to see history.");
-    }
+    clearVideoSource();
+    if (currentStepIndex < TEST_ORDER.length - 1) setCurrentStepIndex((i) => i + 1);
+    else alert("All tests completed! Visit Progress to see history.");
   };
 
-  // UI
+  // UI render (kept similar to your original)
   return (
     <div className="min-h-screen bg-white dark:bg-black transition-colors duration-500 py-8 px-6 sm:px-10 lg:px-20">
       {showInstructions && (
@@ -700,7 +781,11 @@ export default function AnnexureFlow() {
                   </div>
 
                   <div className="flex gap-3">
-                    {!isTracking ? <Button onClick={startRun} className="bg-green-600 hover:bg-green-700">Start Run</Button> : <Button onClick={stopRun} className="bg-red-600 hover:bg-red-700">Stop Run</Button>}
+                    {!isTracking ? (
+                      <Button onClick={startRun} className="bg-green-600 hover:bg-green-700">Start Run</Button>
+                    ) : (
+                      <Button onClick={stopRun} className="bg-red-600 hover:bg-red-700">Stop Run</Button>
+                    )}
                     <Button variant="outline" onClick={() => { coordsRef.current = []; setDistanceKm(0); setDurationSec(0); }}>Reset</Button>
                   </div>
                 </CardContent>
@@ -719,16 +804,14 @@ export default function AnnexureFlow() {
 
                   <div className="flex flex-wrap gap-3 mb-3 items-center">
                     {!recording ? (
-                        <Button onClick={startRecording} className="bg-blue-600 hover:bg-blue-700"><Video className="h-4 w-4 mr-2" /> Record</Button>
+                      <Button onClick={startRecording} className="bg-blue-600 hover:bg-blue-700"><Video className="h-4 w-4 mr-2" /> Record</Button>
                     ) : (
-                        <Button onClick={stopRecording} className="bg-orange-600 hover:bg-orange-700">Stop</Button>
+                      <Button onClick={stopRecording} className="bg-orange-600 hover:bg-orange-700">Stop</Button>
                     )}
-                    
-                    {/* FIX: Changed upload button to programmatically click the hidden input for better reliability */}
+
                     <input ref={fileInputRef} type="file" accept="video/*" onChange={handleFileSelect} className="hidden" />
                     <Button variant="outline" onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4 mr-2" /> Upload</Button>
 
-                    {/* FIX: This button now correctly clears the file input value */}
                     <Button variant="ghost" onClick={clearVideoSource}>Clear</Button>
 
                     <div className="ml-auto flex items-center gap-2">
@@ -752,7 +835,9 @@ export default function AnnexureFlow() {
                       <CardTitle className="capitalize">Results — {analysisResult.exercise.replace("_", " ")}</CardTitle>
                       <CardDescription>Feedback and suggestions</CardDescription>
                     </div>
-                    <Badge variant={analysisResult.score >= 80 ? "default" : analysisResult.score >= 60 ? "secondary" : "destructive"}>{analysisResult.score}/100</Badge>
+                    <Badge variant={analysisResult.score >= 80 ? "default" : analysisResult.score >= 60 ? "secondary" : "destructive"}>
+                      {analysisResult.score}/100
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -780,16 +865,22 @@ export default function AnnexureFlow() {
 
           <div className="space-y-6">
             <Card>
-              <CardHeader><CardTitle>Test Info</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Test Info</CardTitle>
+              </CardHeader>
               <CardContent>
                 <p className="text-sm capitalize">Current test: <strong>{selectedExercise.replace("_", " ")}</strong></p>
                 <p className="text-sm mt-2">Follow the order; you will be advanced automatically.</p>
-                <div className="mt-3"><Button onClick={() => setShowInstructions(true)} variant="outline">Show Instructions</Button></div>
+                <div className="mt-3">
+                  <Button onClick={() => setShowInstructions(true)} variant="outline">Show Instructions</Button>
+                </div>
               </CardContent>
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Benchmarks</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Benchmarks</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-1">
                 <p className="text-sm"><strong>Sit-ups (60s):</strong> 30+ excellent</p>
                 <p className="text-sm"><strong>Jump:</strong> Higher is better</p>
@@ -799,10 +890,16 @@ export default function AnnexureFlow() {
             </Card>
 
             <Card>
-              <CardHeader><CardTitle>Progress</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Progress</CardTitle>
+              </CardHeader>
               <CardContent>
                 <p className="text-sm">Results are saved. View your history on the progress page.</p>
-                <div className="mt-2"><Link href="/progress"><Button>View Progress</Button></Link></div>
+                <div className="mt-2">
+                  <Link href="/progress">
+                    <Button>View Progress</Button>
+                  </Link>
+                </div>
               </CardContent>
             </Card>
           </div>

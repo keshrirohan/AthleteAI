@@ -1,8 +1,8 @@
 // /pages/api/check-username.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import User from "@/models/User";
-import { connectDB } from "@/lib/dbConnect";
 
+import connectDB from "@/lib/dbConnect";
+import User from "@/models/User";
 // Define the response type
 type ResponseData = {
   exists?: boolean;
