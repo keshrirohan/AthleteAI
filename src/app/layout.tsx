@@ -1,3 +1,4 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
@@ -34,8 +35,9 @@ export const metadata: Metadata = {
     ],
     apple: "/favicon_io/apple-touch-icon.png",
   },
-  manifest: "/site.webmanifest",
-  themeColor: "#ffffff", // PWA theme color
+  // keep manifest path consistent with your public/manifest file
+  manifest: "/manifest.json",
+  themeColor: "#000000", // PWA theme color
 };
 
 export default function RootLayout({
@@ -45,6 +47,13 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* keep these consistent with metadata.manifest and your public/ files */}
+        <link rel="manifest" href="/manifest.json" />
+        <link rel="icon" href="/icons/icon512_rounded.png" />
+        <meta name="theme-color" content="#8936FF" />
+      </head>
+
       <body>
         <AuthProvider>
           <ThemeProvider
