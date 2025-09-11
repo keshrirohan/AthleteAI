@@ -16,6 +16,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#000000" />
+      </head>
       <body>
         <AuthProvider>
           <ThemeProvider
