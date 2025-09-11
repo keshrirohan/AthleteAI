@@ -1,49 +1,81 @@
 // src/components/ui/table.tsx
 import React from "react";
 
-export type Column<T = any> = {
+type RowData = Record<string, unknown>;
+
+export type Column<T extends RowData = RowData> = {
   key: string;
-  header?: string;
+  header?: React.ReactNode;
   render?: (row: T) => React.ReactNode;
+  className?: string;
 };
 
-type Props<T = any> = {
+type TableProps<T extends RowData = RowData> = {
   columns: Column<T>[];
   data: T[];
   className?: string;
 };
 
-function Table<T = any>({ columns, data, className = "" }: Props<T>) {
+/* -----------------------
+   Main Table component
+   ----------------------- */
+export function Table<T extends RowData = RowData>({
+  columns,
+  data,
+  className = "",
+}: TableProps<T>) {
   return (
     <div className={`overflow-auto ${className}`}>
       <table className="min-w-full divide-y divide-gray-200">
-        <thead className="bg-zinc-900 text-white">
-          <tr>
+        <TableHead>
+          <TableRow>
             {columns.map((col) => (
-              <th
-                key={col.key}
-                className="px-4 py-2 text-left text-sm font-medium"
-              >
+              <TableCell key={col.key} className="px-4 py-2 text-left text-sm font-medium">
                 {col.header ?? col.key}
-              </th>
+              </TableCell>
             ))}
-          </tr>
-        </thead>
-        <tbody className="bg-white divide-y divide-gray-200">
+          </TableRow>
+        </TableHead>
+
+        <TableBody>
           {data.map((row, i) => (
-            <tr key={i} className="hover:bg-zinc-50">
+            <TableRow key={i}>
               {columns.map((col) => (
-                <td key={col.key} className="px-4 py-2 text-sm">
+                <TableCell key={col.key} className="px-4 py-2 text-sm">
                   {col.render ? col.render(row) : (row as any)[col.key]}
-                </td>
+                </TableCell>
               ))}
-            </tr>
+            </TableRow>
           ))}
-        </tbody>
+        </TableBody>
       </table>
     </div>
   );
 }
 
 export default Table;
-export { Table };
+
+/* -----------------------
+   Small subcomponents
+   ----------------------- */
+
+export const TableHeader: React.FC<{ children?: React.ReactNode; className?: string }> = ({
+  children,
+  className = "",
+}) => <thead className={`bg-zinc-900 text-white ${className}`}>{children}</thead>;
+
+export const TableHead = TableHeader;
+
+export const TableBody: React.FC<{ children?: React.ReactNode; className?: string }> = ({
+  children,
+  className = "",
+}) => <tbody className={`bg-white divide-y divide-gray-200 ${className}`}>{children}</tbody>;
+
+export const TableRow: React.FC<{ children?: React.ReactNode; className?: string }> = ({
+  children,
+  className = "",
+}) => <tr className={`${className}`}>{children}</tr>;
+
+export const TableCell: React.FC<
+  React.TdHTMLAttributes<HTMLTableCellElement> & { children?: React.ReactNode }
+> = ({ children, ...rest }) => <td {...rest}>{children}</td>;
