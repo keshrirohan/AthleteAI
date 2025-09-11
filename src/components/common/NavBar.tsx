@@ -76,12 +76,12 @@ export default function Navbar() {
   };
 
   return (
-    <header className="w-full border-b border-border bg-background backdrop-blur-md fixed top-0 z-50">
+    <header className="w-full border-b border-border bg-background backdrop-blur-md  top-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between px-6 py-4">
         {/* Logo */}
-        <Link href="/" className="text-2xl font-bold tracking-wide">
-          <span className="flex items-center gap-2">
-            <span className="text-2xl font-bold text-blue-500">AthletiQ</span>
+        <Link href="/" >
+          <span className="flex items-center  gap-2">
+            <img className="h-14 w-14 object-contain" src="/logo.png" alt="AthletiQ" />
           </span>
         </Link>
 
