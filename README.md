@@ -1,62 +1,6 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>AI Athlete Trainer – Team NeuroSpartans</title>
-  <style>
-    :root{
-      --bg:#0f1724;
-      --card:#0b1220;
-      --accent:#06b6d4;
-      --muted:#94a3b8;
-      --glass: rgba(255,255,255,0.03);
-    }
-    html,body{height:100%}
-    body{
-      margin:0;
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-      background: linear-gradient(180deg,#071029 0%, #07182a 60%);
-      color:#e6eef6;
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-      padding:28px;
-      line-height:1.45;
-    }
-    .container{
-      max-width:980px;
-      margin:0 auto;
-      background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
-      border-radius:12px;
-      box-shadow: 0 8px 30px rgba(2,6,23,0.7);
-      padding:28px;
-      border: 1px solid rgba(255,255,255,0.03);
-    }
-    header{display:flex;align-items:center;gap:16px;margin-bottom:18px}
-    .logo{
-      width:72px;height:72px;border-radius:12px;
-      display:flex;align-items:center;justify-content:center;
-      font-size:30px;background:linear-gradient(135deg,var(--accent),#7c3aed);
-      box-shadow:0 6px 18px rgba(6,182,212,0.12);
-    }
-    h1{margin:0;font-size:26px}
-    p.lead{margin:8px 0 18px;color:var(--muted)}
-    section{margin:18px 0;padding:12px;border-radius:10px;background:var(--glass)}
-    h2{margin:0 0 8px;font-size:18px}
-    ul{margin:8px 0 0 20px}
-    li{margin:6px 0}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .feature-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-    .badge{display:inline-block;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.02);font-size:13px}
-    .cta{display:inline-block;padding:10px 14px;background:linear-gradient(90deg,var(--accent),#7c3aed);color:#071022;border-radius:10px;font-weight:600;text-decoration:none}
-    footer{margin-top:20px;color:var(--muted);font-size:13px}
-    pre { background: rgba(0,0,0,0.25); padding:10px; border-radius:8px; overflow:auto; }
-    @media (max-width:720px){
-      .two-col,.feature-grid{grid-template-columns:1fr}
-      header{flex-direction:row}
-    }
-  </style>
-</head>
+
+ 
+
 <body>
   <div class="container" role="main">
     <header>
@@ -211,3 +155,4 @@
   </div>
 </body>
 </html>
+
