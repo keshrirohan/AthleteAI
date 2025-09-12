@@ -1,62 +1,21 @@
-"use client"
+import { AdminNav } from "@/components/admin/admin-nav"
+import { AthleteTable } from "@/components/admin/athlete-table"
 
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import Link from "next/link"
-
-export default function AthletesList() {
-  const athletes = [
-    { id: 1, name: "Rahul Sharma", sport: "Football", state: "Delhi", status: "Verified" },
-    { id: 2, name: "Aman Verma", sport: "Cricket", state: "UP", status: "Pending" },
-    { id: 3, name: "Karan Singh", sport: "Athletics", state: "Punjab", status: "Verified" },
-  ]
-
+export default function AdminAthletesPage() {
   return (
-    <div className="p-6 space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-xl font-bold">Athlete Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-between items-center mb-4">
-            <Input placeholder="Search athletes..." className="w-[250px]" />
-            <Button>+ Add Athlete</Button>
+    <div className="min-h-screen bg-background">
+      <AdminNav />
+
+      <div className="lg:pl-64">
+        <main className="p-4 lg:p-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-foreground">Athlete Management</h1>
+            <p className="text-muted-foreground">View, search, and manage athlete profiles and performance data</p>
           </div>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Sport</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {athletes.map((athlete) => (
-                <TableRow key={athlete.id}>
-                  <TableCell>{athlete.name}</TableCell>
-                  <TableCell>{athlete.sport}</TableCell>
-                  <TableCell>{athlete.state}</TableCell>
-                  <TableCell>
-                    <Badge variant={athlete.status === "Verified" ? "default" : "destructive"}>
-                      {athlete.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/admin/athletes/${athlete.id}`}>
-                      <Button variant="outline" size="sm">View</Button>
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+
+          <AthleteTable />
+        </main>
+      </div>
     </div>
   )
 }

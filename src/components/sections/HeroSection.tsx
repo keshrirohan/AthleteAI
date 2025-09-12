@@ -46,7 +46,7 @@ const HeroSection = () => {
             </Link>
           </Button>
           <Button size="lg" variant="outline" asChild className="px-6 sm:px-8">
-            <Link href="/upload">
+            <Link href="/test">
               <Upload className="mr-2 h-5 w-5" />
               Upload Video
             </Link>

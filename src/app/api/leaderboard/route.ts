@@ -27,12 +27,12 @@ export async function GET(req: Request) {
     // 2. Enrich with User + Profile
     const athletes = await Promise.all(
       scores.map(async (s: any) => {
-        const user = await User.findById(s._id)
+        const user = (await User.findById(s._id)
           .select("name firstName lastName state district imageUrl")
-          .lean();
-        const profile = await Profile.findOne({ userId: s._id })
+          .lean()) as { name?: string; firstName?: string; lastName?: string; state?: string; district?: string; imageUrl?: string } | null;
+        const profile = (await Profile.findOne({ userId: s._id })
           .select("name profileImage state")
-          .lean();
+          .lean()) as { name?: string; profileImage?: string; state?: string } | null;
 
         return {
           id: s._id.toString(),

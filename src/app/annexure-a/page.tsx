@@ -477,7 +477,7 @@ export default function AnnexureFlow() {
     });
   };
 
-  // MEDIA PIPE analysis function (kept mostly same as your original, but minimal tuning)
+
   const analyzeVideoFrontend = async (blob: Blob): Promise<AnalysisResult> => {
     const mpPose = await import("@mediapipe/pose");
     const mpDraw = await import("@mediapipe/drawing_utils");
@@ -499,7 +499,7 @@ export default function AnnexureFlow() {
     const overlay = overlayRef.current!;
     const ctx = overlay.getContext("2d")!;
 
-    // internal metrics:
+   
     const hipYs: number[] = [];
     const timestamps: number[] = [];
     const trunkAngles: number[] = [];
@@ -578,7 +578,7 @@ export default function AnnexureFlow() {
       else if (!baselineMeasured) baselineMeasured = true;
     });
 
-    // run pose on video frames
+    
     await new Promise<void>((resolve) => {
       const onLoaded = () => {
         overlay.width = v.videoWidth;

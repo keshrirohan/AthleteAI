@@ -147,7 +147,7 @@ export default function Navbar() {
               <DropdownMenuTrigger asChild>
                 <Avatar className="cursor-pointer">
                   <AvatarImage
-                    src={user?.imageUrl || profileImage || "/defaultImg.png"}
+                    src={profileImage || "/defaultImg.png"}
                     alt={displayName || "User"}
                   />
                   <AvatarFallback>

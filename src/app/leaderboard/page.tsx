@@ -36,7 +36,7 @@ export default function LeaderboardPage() {
       {/* Header */}
       <div className="max-w-3xl mx-auto text-center space-y-4 mb-12">
         <Badge className="animate-pulse">🏆 Leaderboard</Badge>
-        <h1 className="text-4xl md:text-5xl font-bold font-[Neucha]">
+        <h1 className="text-4xl md:text-5xl font-bold ">
           Athlete Performance Rankings
         </h1>
         <p className="text-muted-foreground">

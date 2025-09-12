@@ -33,63 +33,77 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-6">
-      <div className="w-full max-w-md bg-card p-8 rounded-2xl shadow-lg">
-        <h1 className="text-2xl font-bold mb-6 text-center">Contact Us</h1>
+    <div className="min-h-screen flex items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-lg bg-card p-8 rounded-2xl shadow-xl border border-border">
+        <h1 className="text-3xl font-bold text-center text-foreground mb-2">
+          Contact Us
+        </h1>
+        <p className="text-muted-foreground text-center mb-6">
+          We’d love to hear from you. Fill out the form and we’ll get back to you soon.
+        </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Name
+            </label>
             <input
               type="text"
               name="name"
               value={form.name}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-primary"
+              className="w-full px-4 py-2 border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary transition"
+              placeholder="Your name"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Email
+            </label>
             <input
               type="email"
               name="email"
               value={form.email}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-primary"
+              className="w-full px-4 py-2 border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary transition"
+              placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">Message</label>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Message
+            </label>
             <textarea
               name="message"
               rows={4}
               value={form.message}
               onChange={handleChange}
               required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring focus:ring-primary"
+              className="w-full px-4 py-2 border border-input rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary transition"
+              placeholder="Write your message..."
             />
           </div>
 
           <button
             type="submit"
             disabled={status === "loading"}
-            className="w-full bg-primary text-primary-foreground py-2 rounded-lg hover:opacity-90 transition"
+            className="w-full bg-primary text-primary-foreground py-3 rounded-lg font-medium shadow-md hover:shadow-lg hover:opacity-90 transition"
           >
             {status === "loading" ? "Sending..." : "Send Message"}
           </button>
         </form>
 
         {status === "success" && (
-          <p className="text-green-600 text-sm mt-4 text-center">
+          <p className="text-green-600 text-sm mt-5 text-center font-medium animate-fade-in">
             ✅ Message sent successfully!
           </p>
         )}
         {status === "error" && (
-          <p className="text-red-600 text-sm mt-4 text-center">
+          <p className="text-red-600 text-sm mt-5 text-center font-medium animate-fade-in">
             ❌ Something went wrong. Please try again.
           </p>
         )}
