@@ -24,10 +24,8 @@ const COLORS = ["#f44336", "#ff9800", "#ffd600", "#4caf50", "#2196f3"];
 export default function ProfilePage({
   params,
 }: {
-  // params can be either an object or a Promise depending on Next.js version/runtime
   params: Promise<{ id: string }> | { id: string };
 }) {
-  // Next.js (newer version) may provide params as a Promise — unwrap with React.use()
   const resolvedParams =
     params && typeof (params as any).then === "function"
       ? (React.use(params as any) as { id: string })
@@ -56,7 +54,6 @@ export default function ProfilePage({
   useEffect(() => {
     if (!userId) return;
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId]);
 
   const fetchData = async () => {
@@ -78,13 +75,11 @@ export default function ProfilePage({
       });
     } catch (err) {
       console.error(err);
-      // optional: show UI error state
     } finally {
       setLoading(false);
     }
   };
 
-  // simple badge logic
   const overall = useMemo(() => {
     if (!results.length) return { score: 0, badge: "Bronze" };
     const avg = Math.round(
@@ -94,7 +89,6 @@ export default function ProfilePage({
     return { score: avg, badge };
   }, [results]);
 
-  // Chart data — improved structure for clearer tooltips and axis formatting
   const growthSeries = useMemo(() => {
     return results
       .slice()
@@ -110,7 +104,6 @@ export default function ProfilePage({
       });
   }, [results]);
 
-  // determine Y axis domain (small padding) and stats
   const { yDomain, bestScore, lastTest } = useMemo(() => {
     const scores = results.map((r) => Number(r.score ?? 0));
     if (!scores.length)
@@ -139,7 +132,6 @@ export default function ProfilePage({
     setAvatarFile(f);
   };
 
-  // client-side unsigned upload to Cloudinary
   async function uploadToCloudinary(file: File) {
     if (!CLOUD_NAME || !UPLOAD_PRESET)
       throw new Error("Missing Cloudinary client config");
@@ -211,44 +203,34 @@ export default function ProfilePage({
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
-    <div className="max-w-5xl pt-30 mx-auto p-6">
-      <div className="flex items-center gap-6 mb-6">
+    <div className="max-w-5xl mx-auto p-4 sm:p-6">
+      {/* Profile Section */}
+      <div className="flex flex-col items-center p-6 rounded-lg shadow space-y-3 mb-6">
         <img
-          src={user?.imageUrl || "/defaultImg.png"}
+          src={form.profileImage || user?.imageUrl || "/defaultImg.png"}
           alt="avatar"
-          style={{
-            width: 120,
-            height: 120,
-            objectFit: "cover",
-            borderRadius: 8,
-          }}
+          className="w-28 h-28 rounded-full object-cover"
         />
-        <div>
-          <h2 className="text-2xl font-bold">
-            {form.name || user?.name || "Athlete"}
-          </h2>
-          <div className="mt-2">
-            Rank: <strong>{overall.badge}</strong> • Benchmark:{" "}
-            <strong>{overall.score}</strong>
-          </div>
-          <div className="mt-2 text-sm text-gray-600">
-            <span className="mr-4">
-              Total tests: <strong>{results.length}</strong>
-            </span>
-            <span className="mr-4">
-              Best score: <strong>{bestScore}</strong>
-            </span>
-            <span>
-              Last test:{" "}
-              <strong>{lastTest ? lastTest.toLocaleString() : "—"}</strong>
-            </span>
+        <h2 className="text-xl sm:text-2xl font-bold text-center">
+          {form.name || user?.name || "Athlete"}
+        </h2>
+        <div className="text-gray-600 text-sm text-center">
+          Rank: <strong>{overall.badge}</strong> • Benchmark:{" "}
+          <strong>{overall.score}</strong>
+        </div>
+        <div className="text-xs text-gray-500 text-center space-y-1">
+          <div>Total tests: <strong>{results.length}</strong></div>
+          <div>Best score: <strong>{bestScore}</strong></div>
+          <div>
+            Last test:{" "}
+            <strong>{lastTest ? lastTest.toLocaleString() : "—"}</strong>
           </div>
         </div>
-        <div className="ml-auto">
+        <div>
           {!editing ? (
             <button
               onClick={() => setEditing(true)}
-              className="px-3 py-1 bg-blue-600 text-white rounded"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg shadow hover:bg-blue-700"
             >
               Edit Profile
             </button>
@@ -256,7 +238,7 @@ export default function ProfilePage({
             <div className="flex gap-2">
               <button
                 onClick={saveProfile}
-                className="px-3 py-1 bg-green-600 text-white rounded"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg"
                 disabled={saving}
               >
                 {saving ? "Saving..." : "Save"}
@@ -266,7 +248,7 @@ export default function ProfilePage({
                   setEditing(false);
                   setAvatarFile(null);
                 }}
-                className="px-3 py-1 bg-gray-200 rounded"
+                className="px-4 py-2 bg-gray-700 rounded-lg"
               >
                 Cancel
               </button>
@@ -275,8 +257,9 @@ export default function ProfilePage({
         </div>
       </div>
 
+      {/* Editable Form */}
       {editing && (
-        <div className="grid grid-cols-2 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
           <div>
             <label className="block text-sm mb-1">Name</label>
             <input
@@ -285,19 +268,14 @@ export default function ProfilePage({
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
-         
         </div>
       )}
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <div className=" p-4 rounded shadow">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Performance Over Time</h3>
-            <div className="text-sm text-gray-600">
-              Shows score per test (click points for details)
-            </div>
-          </div>
-
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Performance Chart */}
+        <div className="p-4 rounded shadow">
+          <h3 className="font-semibold mb-3">Performance Over Time</h3>
           {growthSeries.length ? (
             <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer>
@@ -309,7 +287,6 @@ export default function ProfilePage({
                   <XAxis
                     dataKey="dateIso"
                     tickFormatter={(iso) => new Date(iso).toLocaleDateString()}
-                    padding={{ left: 10, right: 10 }}
                   />
                   <YAxis domain={yDomain} allowDecimals={false} />
                   <Tooltip
@@ -344,12 +321,9 @@ export default function ProfilePage({
           )}
         </div>
 
-        <div className=" p-4 rounded shadow">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold">Test Distribution</h3>
-            <div className="text-sm text-gray-600">Breakdown of test types</div>
-          </div>
-
+        {/* Distribution Chart */}
+        <div className="p-4 rounded shadow">
+          <h3 className="font-semibold mb-3">Test Distribution</h3>
           {distribution.length ? (
             <div style={{ width: "100%", height: 300 }}>
               <ResponsiveContainer>
@@ -383,43 +357,43 @@ export default function ProfilePage({
         </div>
       </div>
 
-      <div className="mt-6  p-4 rounded shadow">
+      {/* Recent Results */}
+      <div className="mt-6 p-4 rounded shadow">
         <h3 className="font-semibold mb-3">Recent Results</h3>
         {results.length ? (
           results.map((r) => (
-            <div
+            <details
               key={r._id}
-              className="flex items-center justify-between border rounded p-3 mb-2"
+              className="mb-2 border rounded p-3 cursor-pointer group"
             >
-              <div>
-                <div className="font-medium">{r.exercise}</div>
-                <div className="text-sm text-gray-500">
-                  Score: {r.score} • {new Date(r.createdAt).toLocaleString()}
+              <summary className="flex justify-between items-center font-medium">
+                {r.exercise} – Score: {r.score}
+                <span className="text-sm text-gray-500 group-open:hidden">
+                  Tap to expand
+                </span>
+              </summary>
+              <div className="mt-2 text-sm text-gray-600">
+                Date: {new Date(r.createdAt).toLocaleString()}
+              </div>
+              {typeof r.reps !== "undefined" && (
+                <div className="text-sm">Reps: <strong>{r.reps}</strong></div>
+              )}
+              {typeof r.jumpHeightCm !== "undefined" && (
+                <div className="text-sm">
+                  Jump: <strong>{r.jumpHeightCm} cm</strong>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                {typeof r.reps !== "undefined" && (
-                  <div className="text-sm">
-                    Reps: <strong>{r.reps}</strong>
-                  </div>
-                )}
-                {typeof r.jumpHeightCm !== "undefined" && (
-                  <div className="text-sm">
-                    Jump: <strong>{r.jumpHeightCm} cm</strong>
-                  </div>
-                )}
-                {r.videoUrl && (
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href={r.videoUrl}
-                    className="text-sm text-blue-600"
-                  >
-                    View video
-                  </a>
-                )}
-              </div>
-            </div>
+              )}
+              {r.videoUrl && (
+                <a
+                  target="_blank"
+                  rel="noreferrer"
+                  href={r.videoUrl}
+                  className="text-sm text-blue-600"
+                >
+                  View video
+                </a>
+              )}
+            </details>
           ))
         ) : (
           <div className="text-sm text-gray-500">No results.</div>
