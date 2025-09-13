@@ -18,10 +18,8 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="scroll-smooth">
       <body
-        className={`${inter.className} min-h-screen bg-background text-foreground`}
         suppressHydrationWarning
       >
-        <Navbar />
         {children}
       </body>
     </html>

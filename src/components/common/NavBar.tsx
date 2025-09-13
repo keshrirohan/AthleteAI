@@ -197,7 +197,7 @@ export default function Navbar() {
         <div className="md:hidden border-t border-border/40 bg-background/95 backdrop-blur-sm transition-all duration-300">
           <div className="flex flex-col items-center gap-4 py-6">
             <Link
-              href="/home"
+              href="/"
               className="hover:text-primary text-lg"
               onClick={() => setIsOpen(false)}
             >
