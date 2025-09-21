@@ -147,7 +147,9 @@
   </p>
   <p style="margin-top:12px">💙 <strong>Thank you from Team NeuroSpartans</strong></p>
 </section>
+<a href="https://athletiq-ruddy.vercel.app/">Athlete AI</a>
 
 <footer>
   <p>Generated HTML for <strong>AI Athlete Trainer</strong> • Put this into <code>README.html</code> or paste the inner HTML into your GitHub README where allowed.</p>
 </footer>
+
